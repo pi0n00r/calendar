@@ -1,0 +1,12 @@
+; SPDX-FileCopyrightText: 2026 Sandeep-Singh Gary Bajaj
+; SPDX-License-Identifier: AGPL-3.0-or-later
+; AI-NOTICE:Schema-Version=0.1
+; AI-NOTICE:License=AGPL-3.0-or-later
+; AI-NOTICE:Project=calendar
+; AI-NOTICE:Repository=https://github.com/pi0n00r/calendar
+; AI-NOTICE:Author=Sandeep-Singh Gary Bajaj
+; AI-NOTICE:Scope=file
+;
+; The installer renders the reviewed runtime file from this setting. It does
+; not install these source comments into PHP's conf.d directory.
+date.timezone = "America/Toronto"

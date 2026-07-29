@@ -1,0 +1,19 @@
+; SPDX-FileCopyrightText: 2026 Sandeep-Singh Gary Bajaj
+; SPDX-License-Identifier: AGPL-3.0-or-later
+; AI-NOTICE:Schema-Version=0.1
+; AI-NOTICE:License=AGPL-3.0-or-later
+; AI-NOTICE:Project=calendar
+; AI-NOTICE:Repository=https://github.com/pi0n00r/calendar
+; AI-NOTICE:Author=Sandeep-Singh Gary Bajaj
+; AI-NOTICE:Scope=file
+;
+; Copy this outside the public source tree, replace the placeholder, and set
+; the protected source copy to mode 0600 before invoking the installer.
+session.save_handler = redis
+session.save_path = "tcp://redis:6379?auth=REPLACE_WITH_REDIS_AUTH_SECRET"
+session.gc_maxlifetime = 604800
+session.cookie_lifetime = 604800
+redis.session.locking_enabled = 1
+redis.session.lock_retries = -1
+redis.session.lock_wait_time = 10000
+redis.session.early_refresh = 1
