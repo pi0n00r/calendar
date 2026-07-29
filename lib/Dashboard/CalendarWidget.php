@@ -203,7 +203,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 			return $dateTime;
 		}
 
-		$timeZone = new DateTimeZone(sprintf('%s%02d:%02d', $matches[1], $hours, $minutes));
+		$timeZone = new DateTimeZone($matches[1] . $matches[2] . ':' . $matches[3]);
 		$normalized = DateTimeImmutable::createFromFormat(
 			'!Y-m-d H:i:s.u',
 			$dateTime->format('Y-m-d H:i:s.u'),
