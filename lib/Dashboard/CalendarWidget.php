@@ -28,6 +28,7 @@ use OCP\Dashboard\Model\WidgetItem;
 use OCP\Dashboard\Model\WidgetItems;
 use OCP\Dashboard\Model\WidgetOptions;
 use OCP\IDateTimeFormatter;
+use OCP\IDateTimeZone;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 
@@ -39,6 +40,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 	protected IURLGenerator $urlGenerator;
 	protected IManager $calendarManager;
 	protected ITimeFactory $timeFactory;
+	protected IDateTimeZone $dateTimeZone;
 
 	/** @var array<string, string> */
 	private array $calendarDotIconCache = [];
@@ -52,7 +54,8 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		IDateTimeFormatter $dateTimeFormatter,
 		IURLGenerator $urlGenerator,
 		IManager $calendarManager,
-		ITimeFactory $timeFactory) {
+		ITimeFactory $timeFactory,
+		IDateTimeZone $dateTimeZone) {
 		$this->l10n = $l10n;
 		$this->initialStateService = $initialStateService;
 		$this->dataService = $dataService;
@@ -60,6 +63,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		$this->urlGenerator = $urlGenerator;
 		$this->calendarManager = $calendarManager;
 		$this->timeFactory = $timeFactory;
+		$this->dateTimeZone = $dateTimeZone;
 	}
 
 	/**
@@ -127,7 +131,9 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		if ($count === 0) {
 			return [];
 		}
-		$dateTime = (new DateTimeImmutable())->setTimestamp($this->timeFactory->getTime());
+		$timestamp = $this->timeFactory->getTime();
+		$displayTimeZone = $this->dateTimeZone->getTimeZone($timestamp, $userId);
+		$dateTime = (new DateTimeImmutable('@' . $timestamp))->setTimezone($displayTimeZone);
 		$inTwoWeeks = $dateTime->add(new DateInterval('P14D'));
 		$options = [
 			'timerange' => [
@@ -153,7 +159,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 					if ($objectStartDate->getTimestamp() >= $dateTime->getTimestamp()) {
 						$displayStartDate = $this->normalizeDisplayDateTime(
 							$objectStartDate,
-							$dateTime->getTimezone(),
+							$displayTimeZone,
 							$object['DTSTART'],
 						);
 						$recurrence = $object;
@@ -276,7 +282,8 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 
 		$halfEmptyContentMessage = '';
 		if (!empty($widgetItems)) {
-			$startOfTomorrow = $this->timeFactory->getDateTime('tomorrow')->getTimestamp();
+			$displayTimeZone = $this->dateTimeZone->getTimeZone(false, $userId);
+			$startOfTomorrow = $this->timeFactory->getDateTime('tomorrow', $displayTimeZone)->getTimestamp();
 			if ($widgetItems[0]->getSinceId() >= $startOfTomorrow) {
 				$halfEmptyContentMessage = $this->l10n->t('No more events today');
 			}
