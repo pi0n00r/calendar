@@ -11,6 +11,7 @@ namespace OCA\Calendar\Dashboard;
 use DateInterval;
 use DateTime;
 use DateTimeImmutable;
+use DateTimeZone;
 use OCA\Calendar\AppInfo\Application;
 use OCA\Calendar\Service\JSDataService;
 use OCP\AppFramework\Services\IInitialState;
@@ -27,6 +28,7 @@ use OCP\Dashboard\Model\WidgetItem;
 use OCP\Dashboard\Model\WidgetItems;
 use OCP\Dashboard\Model\WidgetOptions;
 use OCP\IDateTimeFormatter;
+use OCP\IDateTimeZone;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 
@@ -38,6 +40,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 	protected IURLGenerator $urlGenerator;
 	protected IManager $calendarManager;
 	protected ITimeFactory $timeFactory;
+	protected IDateTimeZone $dateTimeZone;
 
 	/** @var array<string, string> */
 	private array $calendarDotIconCache = [];
@@ -51,7 +54,8 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		IDateTimeFormatter $dateTimeFormatter,
 		IURLGenerator $urlGenerator,
 		IManager $calendarManager,
-		ITimeFactory $timeFactory) {
+		ITimeFactory $timeFactory,
+		IDateTimeZone $dateTimeZone) {
 		$this->l10n = $l10n;
 		$this->initialStateService = $initialStateService;
 		$this->dataService = $dataService;
@@ -59,6 +63,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		$this->urlGenerator = $urlGenerator;
 		$this->calendarManager = $calendarManager;
 		$this->timeFactory = $timeFactory;
+		$this->dateTimeZone = $dateTimeZone;
 	}
 
 	/**
@@ -126,7 +131,9 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		if ($count === 0) {
 			return [];
 		}
-		$dateTime = (new DateTimeImmutable())->setTimestamp($this->timeFactory->getTime());
+		$timestamp = $this->timeFactory->getTime();
+		$displayTimeZone = $this->dateTimeZone->getTimeZone($timestamp, $userId);
+		$dateTime = (new DateTimeImmutable('@' . $timestamp))->setTimezone($displayTimeZone);
 		$inTwoWeeks = $dateTime->add(new DateInterval('P14D'));
 		$options = [
 			'timerange' => [
@@ -147,22 +154,31 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 			foreach ($searchResult as $calendarEvent) {
 				// Find first recurrence in the future
 				$recurrence = null;
+				$startDate = null;
 				foreach ($calendarEvent['objects'] as $object) {
-					/** @var DateTimeImmutable $startDate */
-					$startDate = $object['DTSTART'][0];
-					if ($startDate->getTimestamp() >= $dateTime->getTimestamp()) {
+					$objectStartDate = $object['DTSTART'][0];
+					if ($objectStartDate->getTimestamp() >= $dateTime->getTimestamp()) {
+						$displayStartDate = $this->normalizeDisplayDateTime(
+							$objectStartDate,
+							$displayTimeZone,
+							$object['DTSTART'],
+						);
 						$recurrence = $object;
+						$startDate = $objectStartDate;
 						break;
 					}
 				}
 
-				if ($recurrence === null) {
+				if ($recurrence === null || $startDate === null) {
 					continue;
 				}
 
 				$widget = new WidgetItem(
 					$recurrence['SUMMARY'][0] ?? 'New Event',
-					$this->dateTimeFormatter->formatTimeSpan(DateTime::createFromImmutable($startDate)),
+					$this->dateTimeFormatter->formatTimeSpan(
+						DateTime::createFromImmutable($displayStartDate),
+						DateTime::createFromImmutable($dateTime),
+					),
 					$this->urlGenerator->getAbsoluteURL($this->urlGenerator->linkToRoute('calendar.view.index', ['objectId' => $calendarEvent['uid']])),
 					$this->getCalendarDotIconUrl($calendar->getDisplayColor()),
 					(string)$startDate->getTimestamp(),
@@ -176,6 +192,34 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 		});
 
 		return array_slice($widgetItems, 0, $limit);
+	}
+
+	/**
+	 * Use one timezone for relative-day comparison. Timed values represent an
+	 * instant and are converted; all-day values represent a calendar date and
+	 * must retain that date when attached to the display timezone.
+	 *
+	 * @param array{0: DateTimeImmutable, 1?: array<string, mixed>} $dateTimeProperty
+	 */
+	private function normalizeDisplayDateTime(
+		DateTimeImmutable $dateTime,
+		DateTimeZone $displayTimeZone,
+		array $dateTimeProperty,
+	): DateTimeImmutable {
+		$parameters = $dateTimeProperty[1] ?? [];
+		$valueType = isset($parameters['VALUE']) ? (string)$parameters['VALUE'] : '';
+
+		if (strcasecmp($valueType, 'DATE') !== 0) {
+			return $dateTime->setTimezone($displayTimeZone);
+		}
+
+		$normalized = DateTimeImmutable::createFromFormat(
+			'!Y-m-d',
+			$dateTime->format('Y-m-d'),
+			$displayTimeZone,
+		);
+
+		return $normalized ?: $dateTime;
 	}
 
 	private function getCalendarDotIconUrl(?string $color): string {
@@ -205,7 +249,8 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 
 		$halfEmptyContentMessage = '';
 		if (!empty($widgetItems)) {
-			$startOfTomorrow = $this->timeFactory->getDateTime('tomorrow')->getTimestamp();
+			$displayTimeZone = $this->dateTimeZone->getTimeZone(false, $userId);
+			$startOfTomorrow = $this->timeFactory->getDateTime('tomorrow', $displayTimeZone)->getTimestamp();
 			if ($widgetItems[0]->getSinceId() >= $startOfTomorrow) {
 				$halfEmptyContentMessage = $this->l10n->t('No more events today');
 			}
