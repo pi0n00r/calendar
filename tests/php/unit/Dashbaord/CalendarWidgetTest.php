@@ -19,6 +19,7 @@ use OCP\Calendar\IManager;
 use OCP\Dashboard\IButtonWidget;
 use OCP\Dashboard\Model\WidgetItem;
 use OCP\IDateTimeFormatter;
+use OCP\IDateTimeZone;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -53,6 +54,11 @@ class CalendarWidgetTest extends TestCase {
 	/** @var ITimeFactory|MockObject */
 	private $timeFactory;
 
+	/** @var IDateTimeZone|MockObject */
+	private $dateTimeZone;
+
+	private DateTimeZone $dashboardTimeZone;
+
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -67,6 +73,10 @@ class CalendarWidgetTest extends TestCase {
 		$this->urlGenerator = $this->createMock(IURLGenerator::class);
 		$this->calendarManager = $this->createMock(IManager::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
+		$this->dateTimeZone = $this->createMock(IDateTimeZone::class);
+		$this->dashboardTimeZone = new DateTimeZone('UTC');
+		$this->dateTimeZone->method('getTimeZone')
+			->willReturnCallback(fn (int|false $_timestamp, ?string $_userId): DateTimeZone => $this->dashboardTimeZone);
 
 		$this->widget = new CalendarWidget(
 			$this->l10n,
@@ -76,6 +86,7 @@ class CalendarWidgetTest extends TestCase {
 			$this->urlGenerator,
 			$this->calendarManager,
 			$this->timeFactory,
+			$this->dateTimeZone,
 		);
 	}
 
@@ -244,14 +255,15 @@ class CalendarWidgetTest extends TestCase {
 
 	public function testGetItemsFormatsRelativeDayInDashboardTimeZone(): void {
 		$previousTimeZone = date_default_timezone_get();
-		date_default_timezone_set('America/Toronto');
+		date_default_timezone_set('UTC');
+		$this->dashboardTimeZone = new DateTimeZone('America/Toronto');
 
 		try {
 			$userId = 'admin';
 			$calendar = $this->createMock(ITestCalendar::class);
 			$now = new DateTimeImmutable('2026-09-08 23:30:00', new DateTimeZone('America/Toronto'));
 			$start = new DateTimeImmutable('2026-09-10 13:00:00 UTC');
-			$rangeStart = (new DateTimeImmutable())->setTimestamp($now->getTimestamp());
+			$rangeStart = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($this->dashboardTimeZone);
 			$options = [
 				'timerange' => [
 					'start' => $rangeStart,
