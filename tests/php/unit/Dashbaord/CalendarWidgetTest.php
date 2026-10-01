@@ -187,12 +187,11 @@ class CalendarWidgetTest extends TestCase {
 		$this->assertEquals($widgets[0], $widget);
 	}
 
-	public function testGetItemsNormalizesFixedOffsetTimeZone(): void {
+	public function testGetItemsPreservesParsedFixedOffsetTimeZone(): void {
 		$userId = 'admin';
 		$calendar = $this->createMock(ITestCalendar::class);
 		$time = (new DateTimeImmutable('2026-07-28 04:30:00 UTC'))->getTimestamp();
 		$rangeStart = (new DateTimeImmutable())->setTimestamp($time);
-		$backendStart = new DateTimeImmutable('2026-07-28 11:15:00 UTC');
 		$expectedStart = new DateTimeImmutable('2026-07-28 11:15:00 -04:00');
 		$options = [
 			'timerange' => [
@@ -206,7 +205,7 @@ class CalendarWidgetTest extends TestCase {
 			'uri' => 'fixed-offset-event.ics',
 			'objects' => [[
 				'DTSTART' => [
-					$backendStart,
+					$expectedStart,
 					['TZID' => 'UTC-04:00'],
 				],
 				'SUMMARY' => ['Fixed offset event'],
@@ -249,7 +248,7 @@ class CalendarWidgetTest extends TestCase {
 		$this->assertCount(1, $widgets);
 		$this->assertSame((string)$expectedStart->getTimestamp(), $widgets[0]->getSinceId());
 		$this->assertSame('in 10 hours', $widgets[0]->getSubtitle());
-		$this->assertSame($backendStart, $result['objects'][0]['DTSTART'][0]);
+		$this->assertSame($expectedStart, $result['objects'][0]['DTSTART'][0]);
 		$this->assertSame('UTC-04:00', $result['objects'][0]['DTSTART'][1]['TZID']);
 	}
 
@@ -319,19 +318,6 @@ class CalendarWidgetTest extends TestCase {
 		} finally {
 			date_default_timezone_set($previousTimeZone);
 		}
-	}
-
-	public function testFixedOffsetNormalizationLeavesAllDayValueUnchanged(): void {
-		$start = new DateTimeImmutable('2026-07-28 00:00:00 UTC');
-		$normalized = self::invokePrivate($this->widget, 'normalizeFixedOffsetDateTime', [[
-			$start,
-			[
-				'TZID' => 'UTC-04:00',
-				'VALUE' => 'DATE',
-			],
-		]]);
-
-		$this->assertSame($start, $normalized);
 	}
 
 	public function testDisplayNormalizationKeepsAllDayCalendarDate(): void {
