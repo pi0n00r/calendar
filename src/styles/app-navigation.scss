@@ -1,0 +1,140 @@
+/*!
+ * SPDX-FileCopyrightText: 2016 Nextcloud GmbH and Nextcloud contributors
+ * SPDX-License-Identifier: AGPL-3.0-or-later
+ */
+
+%prevent-overlap {
+	background-color: var(--color-main-background) !important;
+	border: 1px solid var(--color-background-dark) !important;
+}
+
+.app-navigation-toggle--prevent-overlap {
+	@extend %prevent-overlap;
+}
+
+.app-calendar {
+	.datepicker-button-section,
+	.today-button-section,
+	.view-button-section {
+		display: flex;
+	}
+
+	.datepicker-button-section {
+		&__left{
+			border-radius: var(--border-radius-element) 0 0 var(--border-radius-element) !important;
+		}
+		&__right{
+			border-radius: 0 var(--border-radius-element) var(--border-radius-element) 0 !important;
+		}
+	}
+
+	.app-navigation__body {
+		overflow-y: unset !important;
+
+		.app-navigation-header {
+			padding: calc(var(--default-grid-baseline, 4px) * 2);
+		}
+	}
+
+	.new-event-today-view-section {
+		display: flex;
+		gap: var(--default-grid-baseline);
+		margin-top: var(--default-grid-baseline);
+
+		// Fix margins from core
+		.button {
+			margin: 0 var(--default-grid-baseline) 0 0;
+		}
+
+		.new-event {
+			flex-grow: 5;
+			text-overflow: ellipsis;
+			white-space: nowrap;
+			overflow: hidden;
+		}
+
+		.today {
+			flex-grow: 1;
+			font-weight: normal !important;
+		}
+	}
+
+	// Add background to navigation toggle to fix overlap with calendar elements
+	.app-navigation-toggle {
+		@extend %prevent-overlap;
+	}
+
+	.app-navigation {
+		#calendars-list {
+			display: block !important;
+		}
+
+		li.app-navigation-loading-placeholder-entry {
+			div.icon.icon-loading {
+				min-height: 44px;
+			}
+		}
+
+		.app-navigation-entry-wrapper.deleted {
+			.app-navigation-entry__name {
+				text-decoration: line-through;
+			}
+		}
+
+		.app-navigation-entry-wrapper.disabled {
+			.app-navigation-entry__name {
+				color: var(--color-text-lighter) !important;
+			}
+		}
+
+		.app-navigation-entry-wrapper .app-navigation-entry__children .app-navigation-entry {
+			padding-inline-start: 0 !important;
+
+			.avatar {
+				width: 32px;
+				height: 32px;
+				background-color: var(--color-border-dark);
+				background-size: 16px;
+			}
+
+			.avatar.published {
+				background-color: var(--color-primary-element);
+				color: white;
+			}
+		}
+
+		.app-navigation-entry-new-calendar {
+			.app-navigation-entry__name {
+				color: var(--color-text-maxcontrast) !important;
+			}
+
+			&:hover,
+			&--open {
+				.app-navigation-entry__name{
+					color: var(--color-text-light) !important;
+				}
+			}
+
+			.action-item:not(.action-item--open) {
+				.action-item__menutoggle:not(:hover):not(:focus):not(:active) {
+					opacity: .5;
+				}
+			}
+
+		}
+
+
+		ul {
+			.appointment-config-list {
+				.app-navigation-caption {
+					margin-top: 22px;
+				}
+
+				.app-navigation-entry-link,
+				.app-navigation-entry-link * {
+					cursor: default;
+				}
+			}
+		}
+	}
+}

@@ -62,10 +62,10 @@ OC.L10N.register(
     "Repeat" : "Repeter",
     "never" : "nunquam",
     "after" : "post",
-    "Global" : "Global",
     "Subscribe" : "Subscribe",
     "Personal" : "Personal",
     "Close" : "Clauder",
+    "New event" : "Nove evento",
     "Anniversary" : "Anniversario de evento",
     "Week {number} of {year}" : "Septimana {number} de {year}",
     "Daily" : "Cata die",
@@ -76,8 +76,6 @@ OC.L10N.register(
     "When shared show only busy" : "Quando compartite, monstrar solo si illo es occupate",
     "When shared hide this event" : "Quando compartite, celar iste evento",
     "Confirmed" : "Confirmate",
-    "Hidden" : "Occultate",
-    "Show week numbers" : "Monstrar le numero del septimanas",
-    "Edit event" : "Modificar evento"
+    "Global" : "Global"
 },
 "nplurals=2; plural=(n != 1);");

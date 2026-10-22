@@ -24,20 +24,6 @@ use OCP\IURLGenerator;
  * @package OCA\Calendar\Controller
  */
 class PublicViewController extends Controller {
-	/**
-	 * @var IConfig
-	 */
-	private $config;
-
-	/**
-	 * @var IInitialStateService
-	 */
-	private $initialStateService;
-
-	/**
-	 * @var IURLGenerator
-	 */
-	private $urlGenerator;
 
 	/**
 	 * @param string $appName
@@ -46,15 +32,14 @@ class PublicViewController extends Controller {
 	 * @param IInitialStateService $initialStateService
 	 * @param IURLGenerator $urlGenerator
 	 */
-	public function __construct(string $appName,
+	public function __construct(
+		string $appName,
 		IRequest $request,
-		IConfig $config,
-		IInitialStateService $initialStateService,
-		IURLGenerator $urlGenerator) {
+		private IConfig $config,
+		private IInitialStateService $initialStateService,
+		private IURLGenerator $urlGenerator,
+	) {
 		parent::__construct($appName, $request);
-		$this->config = $config;
-		$this->initialStateService = $initialStateService;
-		$this->urlGenerator = $urlGenerator;
 	}
 
 	/**
@@ -100,7 +85,6 @@ class PublicViewController extends Controller {
 		$defaultSkipPopover = $this->config->getAppValue($this->appName, 'skipPopover', 'yes');
 		$defaultTimezone = $this->config->getAppValue($this->appName, 'timezone', 'automatic');
 		$defaultSlotDuration = $this->config->getAppValue($this->appName, 'slotDuration', '00:30:00');
-		$defaultDefaultReminder = $this->config->getAppValue($this->appName, 'defaultReminder', 'none');
 		$defaultShowTasks = $this->config->getAppValue($this->appName, 'showTasks', 'yes');
 		$defaultTasksSidebar = $this->config->getAppValue($this->appName, 'tasksSidebar', 'yes');
 		$defaultCanSubscribeLink = $this->config->getAppValue('dav', 'allow_calendar_link_subscriptions', 'yes');
@@ -118,8 +102,8 @@ class PublicViewController extends Controller {
 		$this->initialStateService->provideInitialState($this->appName, 'talk_api_version', 'v1');
 		$this->initialStateService->provideInitialState($this->appName, 'timezone', $defaultTimezone);
 		$this->initialStateService->provideInitialState($this->appName, 'slot_duration', $defaultSlotDuration);
-		$this->initialStateService->provideInitialState($this->appName, 'default_reminder', $defaultDefaultReminder);
 		$this->initialStateService->provideInitialState($this->appName, 'show_tasks', $defaultShowTasks === 'yes');
+		$this->initialStateService->provideInitialState($this->appName, 'show_declined', true);
 		$this->initialStateService->provideInitialState($this->appName, 'tasks_sidebar', $defaultTasksSidebar === 'yes');
 		$this->initialStateService->provideInitialState($this->appName, 'tasks_enabled', false);
 		$this->initialStateService->provideInitialState($this->appName, 'hide_event_export', false);

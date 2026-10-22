@@ -6,7 +6,7 @@
 <script setup lang="ts">
 import { NcCheckboxRadioSwitch } from '@nextcloud/vue'
 import { computed } from 'vue'
-import DurationSelect from './DurationSelect.vue'
+import DurationSelect from '@/components/AppointmentConfigModal/DurationSelect.vue'
 
 const props = withDefaults(defineProps<{
 	label: string
@@ -72,16 +72,6 @@ const durationSelection = computed<number>({
 	&__checkbox-row {
 		display: flex;
 		align-items: center;
-
-		&__input-wrapper {
-			flex: 0 0 calc(var(--default-grid-baseline) * 4);
-
-			input[type=checkbox] {
-				margin: 0;
-				min-height: unset;
-				cursor: pointer;
-			}
-		}
 
 		input, label {
 			display: block;

@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 
-import { getDefaultPrincipalObject, mapDavToPrincipal } from '../../../../src/models/principal.js'
+import { getDefaultPrincipalObject, mapDavToPrincipal } from '@/models/principal.js'
 
 describe('Test suite: Principal model (models/principal.js)', () => {
 	it('should return a default principal object', () => {
@@ -217,6 +217,14 @@ describe('Test suite: Principal model (models/principal.js)', () => {
 			isCalendarRoom: true,
 			principalId: 'room-123',
 			userId: null,
+			roomAddress: null,
+			roomBuildingName: null,
+			roomBuildingAddress: null,
+			roomBuildingStory: null,
+			roomBuildingRoomNumber: null,
+			roomFeatures: null,
+			roomSeatingCapacity: null,
+			roomType: null,
 		})
 	})
 

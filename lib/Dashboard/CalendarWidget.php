@@ -32,34 +32,21 @@ use OCP\IL10N;
 use OCP\IURLGenerator;
 
 class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWidget, IOptionWidget, IReloadableWidget {
-	protected IL10N $l10n;
-	protected IInitialState $initialStateService;
-	protected JSDataService $dataService;
-	protected IDateTimeFormatter $dateTimeFormatter;
-	protected IURLGenerator $urlGenerator;
-	protected IManager $calendarManager;
-	protected ITimeFactory $timeFactory;
-
 	/** @var array<string, string> */
 	private array $calendarDotIconCache = [];
 
 	/**
 	 * CalendarWidget constructor.
 	 */
-	public function __construct(IL10N $l10n,
-		IInitialState $initialStateService,
-		JSDataService $dataService,
-		IDateTimeFormatter $dateTimeFormatter,
-		IURLGenerator $urlGenerator,
-		IManager $calendarManager,
-		ITimeFactory $timeFactory) {
-		$this->l10n = $l10n;
-		$this->initialStateService = $initialStateService;
-		$this->dataService = $dataService;
-		$this->dateTimeFormatter = $dateTimeFormatter;
-		$this->urlGenerator = $urlGenerator;
-		$this->calendarManager = $calendarManager;
-		$this->timeFactory = $timeFactory;
+	public function __construct(
+		protected IL10N $l10n,
+		protected IInitialState $initialStateService,
+		protected JSDataService $dataService,
+		protected IDateTimeFormatter $dateTimeFormatter,
+		protected IURLGenerator $urlGenerator,
+		protected IManager $calendarManager,
+		protected ITimeFactory $timeFactory,
+	) {
 	}
 
 	/**
@@ -143,7 +130,8 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 			if ($calendar->isDeleted()) {
 				continue;
 			}
-			$searchResult = $calendar->search('', [], $options, $limit);
+			// No limit: the backend would apply it before sorting by start date and could skip the soonest events
+			$searchResult = $calendar->search('', [], $options);
 			foreach ($searchResult as $calendarEvent) {
 				// Find first recurrence in the future
 				$recurrence = null;
@@ -176,7 +164,7 @@ class CalendarWidget implements IAPIWidget, IAPIWidgetV2, IButtonWidget, IIconWi
 			return (int)$a->getSinceId() - (int)$b->getSinceId();
 		});
 
-		return $widgetItems;
+		return array_slice($widgetItems, 0, $limit);
 	}
 
 	/**

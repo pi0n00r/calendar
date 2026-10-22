@@ -79,17 +79,17 @@ import { useId } from 'vue'
 import ChevronLeftIcon from 'vue-material-design-icons/ChevronLeft.vue'
 import ChevronRightIcon from 'vue-material-design-icons/ChevronRight.vue'
 import HelpCircleIcon from 'vue-material-design-icons/HelpCircleOutline.vue'
-import freeBusyBlockedForAllEventSource from '../../../fullcalendar/eventSources/freeBusyBlockedForAllEventSource.js'
-import freeBusyFakeBlockingEventSource from '../../../fullcalendar/eventSources/freeBusyFakeBlockingEventSource.js'
-import freeBusyResourceEventSource from '../../../fullcalendar/eventSources/freeBusyResourceEventSource.js'
-import { getDateFormattingConfig } from '../../../fullcalendar/localization/dateFormattingConfig.js'
-import { getFullCalendarLocale } from '../../../fullcalendar/localization/localeProvider.js'
-import momentPlugin from '../../../fullcalendar/localization/momentPlugin.js'
-import VTimezoneNamedTimezone from '../../../fullcalendar/timezones/vtimezoneNamedTimezoneImpl.js'
-import { mapPrincipalObjectToAttendeeObject } from '../../../models/attendee.js'
-import useSettingsStore from '../../../store/settings.js'
-import { getColorForFBType } from '../../../utils/freebusy.js'
-import { randomId } from '../../../utils/randomId.js'
+import freeBusyBlockedForAllEventSource from '@/fullcalendar/eventSources/freeBusyBlockedForAllEventSource.js'
+import freeBusyFakeBlockingEventSource from '@/fullcalendar/eventSources/freeBusyFakeBlockingEventSource.js'
+import freeBusyResourceEventSource from '@/fullcalendar/eventSources/freeBusyResourceEventSource.js'
+import { getDateFormattingConfig } from '@/fullcalendar/localization/dateFormattingConfig.js'
+import { getFullCalendarLocale } from '@/fullcalendar/localization/localeProvider.js'
+import momentPlugin from '@/fullcalendar/localization/momentPlugin.js'
+import VTimezoneNamedTimezone from '@/fullcalendar/timezones/vtimezoneNamedTimezoneImpl.js'
+import { mapPrincipalObjectToAttendeeObject } from '@/models/attendee.js'
+import useSettingsStore from '@/store/settings.js'
+import { getColorForFBType } from '@/utils/freebusy.js'
+import { randomId } from '@/utils/randomId.js'
 
 export default {
 	name: 'RoomAvailabilityModal',
@@ -319,11 +319,6 @@ export default {
 </script>
 
 <style scoped lang="scss">
-.icon-close {
-	display: block;
-	height: 100%;
-}
-
 .modal__content {
 	padding: 15px;
 	//when the calendar is open, it's cut at the bottom, adding a margin fixes it
@@ -333,9 +328,6 @@ export default {
 		justify-content: space-between;
 		align-items: center;
 		margin-bottom: 20px;
-		&__select{
-			width: 260px;
-		}
 		&__date{
 			display: flex;
 			justify-content: space-between;
@@ -347,23 +339,6 @@ export default {
 	}
 	&__header{
 		margin-bottom: 20px;
-		h3{
-			font-weight: 500;
-		}
-	}
-	&__footer{
-		display: flex;
-		justify-content: space-between;
-		align-items: center;
-		margin-top: 20px;
-		&__title{
-			h3{
-				font-weight: 500;
-			}
-			&__timezone{
-				color: var(--color-text-lighter);
-			}
-		}
 	}
 }
 

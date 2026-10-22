@@ -13,12 +13,14 @@ import debounce from 'debounce'
 import pLimit from 'p-limit'
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import Draggable from 'vuedraggable'
-import CalendarListItem from './CalendarList/CalendarListItem.vue'
-import CalendarListItemLoadingPlaceholder from './CalendarList/CalendarListItemLoadingPlaceholder.vue'
-import CalendarListNew from './CalendarList/CalendarListNew.vue'
-import PublicCalendarListItem from './CalendarList/PublicCalendarListItem.vue'
+import CalendarListItem from '@/components/AppNavigation/CalendarList/CalendarListItem.vue'
+import CalendarListItemLoadingPlaceholder from '@/components/AppNavigation/CalendarList/CalendarListItemLoadingPlaceholder.vue'
+import CalendarListNew from '@/components/AppNavigation/CalendarList/CalendarListNew.vue'
+import PublicCalendarListItem from '@/components/AppNavigation/CalendarList/PublicCalendarListItem.vue'
 import useCalendarsStore from '@/store/calendars.js'
 import usePrincipalsStore from '@/store/principals.js'
+import { isDeckCalendar } from '@/utils/calendar.ts'
+import logger from '@/utils/logger.js'
 import { isAfterVersion } from '@/utils/nextcloudVersion.ts'
 
 interface DelegatedGroup {
@@ -103,7 +105,7 @@ function sortCalendars(): void {
 			continue
 		}
 
-		if (calendar.url.includes('app-generated--deck--board')) {
+		if (isDeckCalendar(calendar)) {
 			sortedCalendars.deck.push(calendar)
 			continue
 		}
@@ -127,6 +129,7 @@ async function update(): Promise<void> {
 		...sortedCalendars.shared,
 		...sortedCalendars.deck,
 		...sortedCalendars.tasks,
+		...sortedCalendars.delegated,
 	]
 	const newOrder = currentCalendars.reduce<Record<string, number>>((newOrderObj, currentItem, currentIndex) => {
 		newOrderObj[currentItem.id] = currentIndex
@@ -138,7 +141,7 @@ async function update(): Promise<void> {
 	try {
 		await limit(() => calendarsStore.updateCalendarListOrder({ newOrder }))
 	} catch (error) {
-		console.error(error)
+		logger.error(error)
 		showError(t('calendar', 'Could not update calendar order.'))
 		// Reset calendar list order on error
 		calendars.value = calendarsStore.sortedCalendarsSubscriptions
@@ -175,7 +178,7 @@ onMounted(() => {
 
 <template>
 	<div class="calendar-list-wrapper">
-		<CalendarListNew />
+		<CalendarListNew v-if="!isPublic" />
 		<template v-if="!isPublic">
 			<Draggable
 				v-model="sortedCalendars.personal"

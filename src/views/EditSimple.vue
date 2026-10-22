@@ -16,7 +16,9 @@
 			@click.self="cancel(false)" />
 		<div
 			v-if="showPopover"
+			ref="popover"
 			class="event-popover"
+			tabindex="-1"
 			role="dialog"
 			aria-modal="true"
 			:aria-label="t('calendar', 'Simple event editor')"
@@ -46,7 +48,7 @@
 
 					<EmptyContent :name="$t('calendar', 'Event does not exist')" :description="error">
 						<template #icon>
-							<CalendarBlank :size="20" decorative />
+							<CalendarBlank decorative />
 						</template>
 					</EmptyContent>
 				</template>
@@ -82,30 +84,35 @@
 								</template>
 								{{ $t('calendar', 'Export') }}
 							</ActionLink>
-							<ActionButton v-if="!canCreateRecurrenceException && !isReadOnly" @click="duplicateEvent()">
+							<ActionButton v-if="canDuplicate" @click="duplicateEvent()">
 								<template #icon>
 									<ContentDuplicate :size="20" decorative />
 								</template>
 								{{ $t('calendar', 'Duplicate') }}
 							</ActionButton>
-							<ActionButton v-if="canDelete && !canCreateRecurrenceException" @click="deleteAndLeave(false)">
+							<ActionButton v-if="!isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
 								<template #icon>
 									<Delete :size="20" decorative />
 								</template>
 								{{ $t('calendar', 'Delete') }}
 							</ActionButton>
-							<ActionButton v-if="canDelete && canCreateRecurrenceException" @click="deleteAndLeave(false)">
+							<ActionButton v-if="isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
 								<template #icon>
 									<Delete :size="20" decorative />
 								</template>
 								{{ $t('calendar', 'Delete this occurrence') }}
 							</ActionButton>
-							<NcActionSeparator v-if="canDelete && canCreateRecurrenceException" />
-							<ActionButton v-if="canDelete && canCreateRecurrenceException" @click="deleteAndLeave(true)">
+							<ActionButton v-if="isRecurringInstance && canDelete('future')" @click="deleteAndLeave('future')">
 								<template #icon>
 									<Delete :size="20" decorative />
 								</template>
-								{{ $t('calendar', 'Delete this and all future') }}
+								{{ $t('calendar', 'Delete this and future occurrences') }}
+							</ActionButton>
+							<ActionButton v-if="isRecurringInstance && canDelete('series')" @click="deleteAndLeave('series')">
+								<template #icon>
+									<Delete :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Delete entire series') }}
 							</ActionButton>
 						</Actions>
 						<Actions>
@@ -158,15 +165,20 @@
 							@updateEndTimezone="updateEndTimezone"
 							@toggleAllDay="toggleAllDay" />
 
-						<div v-if="!isReadOnlyOrViewing" class="event-popover__all-day">
+						<div v-if="!isReadOnlyOrViewing" class="event-popover__date-options">
 							<NcCheckboxRadioSwitch
 								:modelValue="isAllDay"
 								:disabled="isViewedByOrganizer === false || isReadOnlyOrViewing || !canModifyAllDay"
 								@update:modelValue="toggleAllDayPreliminary">
 								{{ $t('calendar', 'All day') }}
 							</NcCheckboxRadioSwitch>
+							<Repeat
+								:isReadOnly="isReadOnlyOrViewing || isViewedByOrganizer === false"
+								:isEditingBaseInstance="isEditingBaseInstance"
+								:isEditingExceptionInstance="isEditingExceptionInstance"
+								@requireFutureUpdate="requireFutureUpdate" />
 						</div>
-						<div class="event-popover__location-row">
+						<div v-if="!isViewing || hasLocation" class="event-popover__location-row">
 							<PropertyText
 								:isReadOnly="isReadOnlyOrViewing || isViewedByOrganizer === false"
 								:propModel="rfcProps.location"
@@ -187,7 +199,6 @@
 						</div>
 						<AddTalkModal
 							v-if="isTalkModalOpen"
-							:calendarObjectInstance="calendarObjectInstance"
 							:delegatorUserId="delegatorUserId"
 							@close="isTalkModalOpen = false"
 							@updateLocation="updateLocation"
@@ -209,22 +220,23 @@
 							:showHeader="true"
 							:isReadOnly="isReadOnlyOrViewing || isViewedByOrganizer === false"
 							:isSharedWithMe="isSharedWithMe"
-							:calendar="selectedCalendar"
-							:calendarObjectInstance="calendarObjectInstance" />
+							:calendar="selectedCalendar" />
 
 						<InvitationResponseButtons
-							v-if="isViewedByAttendee && isViewing"
+							v-if="isViewedByAttendee && isViewing && !isCancelled"
 							class="event-popover__response-buttons"
 							:attendee="userAsAttendee"
-							:calendarId="calendarId"
 							@close="closeEditorAndSkipAction" />
 
 						<div v-if="isReadOnlyOrViewing && hasAlarms" class="property-alarm-wrapper">
 							<Bell :size="20" class="property-alarm-icon" />
 							<AlarmList
-								:calendarObjectInstance="calendarObjectInstance"
 								:isReadOnly="isReadOnlyOrViewing" />
 						</div>
+						<AttachmentsList
+							v-if="!isLoading && isViewing"
+							:isReadOnly="true"
+							compact />
 					</div>
 
 					<!-- Footer -->
@@ -232,15 +244,17 @@
 						<SaveButtons
 							v-if="!isWidget"
 							class="event-popover__buttons"
-							:canCreateRecurrenceException="canCreateRecurrenceException"
+							:canUpdateOccurrence="canUpdate('occurrence')"
+							:canUpdateFuture="canUpdate('future')"
+							:canUpdateSeries="canUpdate('series')"
 							:isNew="isNew"
 							:isReadOnly="isReadOnlyOrViewing"
-							:forceThisAndAllFuture="forceThisAndAllFuture"
 							:showMoreButton="true"
 							:moreButtonType="isViewing ? 'tertiary' : undefined"
 							:disabled="isSaving"
-							@saveThisOnly="saveAndView(false)"
-							@saveThisAndAllFuture="saveAndView(true)"
+							@saveOccurrence="saveAndView('occurrence')"
+							@saveFuture="saveAndView('future')"
+							@saveSeries="saveAndView('series')"
 							@showMore="showMore">
 							<NcButton
 								v-if="!isReadOnly && isViewing"
@@ -274,7 +288,6 @@ import {
 	NcActionLink as ActionLink,
 	NcActions as Actions,
 	NcEmptyContent as EmptyContent,
-	NcActionSeparator,
 	NcButton,
 	NcCheckboxRadioSwitch,
 	NcDialog,
@@ -291,22 +304,25 @@ import EditIcon from 'vue-material-design-icons/PencilOutline.vue'
 import Delete from 'vue-material-design-icons/TrashCanOutline.vue'
 import Download from 'vue-material-design-icons/TrayArrowDown.vue'
 import IconVideo from 'vue-material-design-icons/VideoOutline.vue'
-import AddTalkModal from '../components/Editor/AddTalkModal.vue'
-import AlarmList from '../components/Editor/Alarm/AlarmList.vue'
-import CalendarPickerHeader from '../components/Editor/CalendarPickerHeader.vue'
+import AddTalkModal from '@/components/Editor/AddTalkModal.vue'
+import AlarmList from '@/components/Editor/Alarm/AlarmList.vue'
+import AttachmentsList from '@/components/Editor/Attachments/AttachmentsList.vue'
+import CalendarPickerHeader from '@/components/Editor/CalendarPickerHeader.vue'
 import InvitationResponseButtons
-	from '../components/Editor/InvitationResponseButtons.vue'
-import InviteesList from '../components/Editor/Invitees/InviteesList.vue'
-import PropertyText from '../components/Editor/Properties/PropertyText.vue'
-import PropertyTitle from '../components/Editor/Properties/PropertyTitle.vue'
+	from '@/components/Editor/InvitationResponseButtons.vue'
+import InviteesList from '@/components/Editor/Invitees/InviteesList.vue'
+import PropertyText from '@/components/Editor/Properties/PropertyText.vue'
+import PropertyTitle from '@/components/Editor/Properties/PropertyTitle.vue'
 import PropertyTitleTimePicker
-	from '../components/Editor/Properties/PropertyTitleTimePicker.vue'
-import SaveButtons from '../components/Editor/SaveButtons.vue'
-import EditorMixin from '../mixins/EditorMixin.js'
-import useCalendarObjectInstanceStore from '../store/calendarObjectInstance.js'
-import useSettingsStore from '../store/settings.js'
-import useWidgetStore from '../store/widget.js'
-import { getPrefixedRoute } from '../utils/router.js'
+	from '@/components/Editor/Properties/PropertyTitleTimePicker.vue'
+import Repeat from '@/components/Editor/Repeat/Repeat.vue'
+import SaveButtons from '@/components/Editor/SaveButtons.vue'
+import EditorMixin from '@/mixins/EditorMixin.js'
+import useCalendarObjectInstanceStore from '@/store/calendarObjectInstance.js'
+import useSettingsStore from '@/store/settings.js'
+import useWidgetStore from '@/store/widget.js'
+import logger from '@/utils/logger.js'
+import { getPrefixedRoute } from '@/utils/router.js'
 
 export default {
 	name: 'EditSimple',
@@ -316,13 +332,14 @@ export default {
 		PropertyText,
 		PropertyTitleTimePicker,
 		PropertyTitle,
+		Repeat,
 		NcPopover,
 		Actions,
 		ActionButton,
 		ActionLink,
-		NcActionSeparator,
 		AlarmList,
 		Bell,
+		AttachmentsList,
 		EmptyContent,
 		CalendarBlank,
 		Close,
@@ -359,6 +376,7 @@ export default {
 
 	data() {
 		return {
+			returnFocusElement: document.activeElement,
 			hasLocation: false,
 			hasDescription: false,
 			hasAttendees: false,
@@ -366,12 +384,11 @@ export default {
 			boundaryElement: null,
 			isVisible: true,
 			isViewing: true,
-			isCancelled: false,
 			closeMask: false,
 			showCancelDialog: false,
 			cancelButtons: [
 				{
-					label: t('calendar', 'Discard changes'),
+					label: t('calendar', 'Discard'),
 					variant: 'secondary',
 					icon: IconDelete,
 					callback: () => { this.cancel(true) },
@@ -389,14 +406,17 @@ export default {
 			resizeTimeout: null,
 			popoverResizeObserver: null,
 			lastTargetElement: null,
+			focusOnReady: true,
 		}
 	},
 
 	computed: {
 		...mapStores(useCalendarObjectInstanceStore),
-		...mapState(useSettingsStore, ['hideEventExport']),
-		...mapState(useWidgetStore, [
+		...mapState(useSettingsStore, [
 			'hideEventExport',
+		]),
+
+		...mapState(useWidgetStore, [
 			'widgetEventDetailsOpen',
 			'widgetEventDetails',
 			'widgetRef',
@@ -433,6 +453,7 @@ export default {
 		$route(to, from) {
 			// Hide popover when changing the view until the user selects a slot again
 			this.isVisible = to?.params.view === from?.params.view
+			this.focusOnReady = true
 			if (this.isVisible) {
 				this.$nextTick(() => {
 					this.repositionPopover()
@@ -440,9 +461,25 @@ export default {
 			}
 		},
 
+		popoverReady: {
+			// The popover can only receive focus once it is rendered visible
+			flush: 'post',
+			handler(ready) {
+				if (!ready || !this.focusOnReady) {
+					return
+				}
+				this.focusOnReady = false
+				// Move focus into the dialog, unless a field inside already took it (e.g. autofocused title)
+				if (!this.$refs.popover?.contains(document.activeElement)) {
+					this.$refs.popover?.focus()
+				}
+			},
+		},
+
 		showPopover(newVal) {
 			if (!newVal) {
 				this.popoverReady = false
+				this.focusOnReady = true
 			} else {
 				this.$nextTick(() => {
 					this.ensureElInDom()
@@ -450,12 +487,11 @@ export default {
 			}
 		},
 
-		calendarObjectInstance(newVal) {
+		calendarObjectInstance() {
 			this.hasLocation = false
 			this.hasDescription = false
 			this.hasAttendees = false
 			this.hasAlarms = false
-			this.isCancelled = false
 
 			if (this.calendarObjectInstance) {
 				if (typeof this.calendarObjectInstance.location === 'string' && this.calendarObjectInstance.location.trim() !== '') {
@@ -469,9 +505,6 @@ export default {
 				}
 				if (Array.isArray(this.calendarObjectInstance.alarms) && this.calendarObjectInstance.alarms.length > 0) {
 					this.hasAlarms = true
-				}
-				if (this.calendarObjectInstance.status === 'CANCELLED') {
-					this.isCancelled = true
 				}
 
 				// Reposition after content changes
@@ -497,7 +530,7 @@ export default {
 			})
 		},
 
-		isLoading(newVal, oldVal) {
+		isLoading(newVal) {
 			// When loading completes, hide and reposition to fit the full content.
 			if (newVal === false) {
 				this.popoverReady = false
@@ -520,10 +553,6 @@ export default {
 			this.isLoading = false
 		}
 		this.boundaryElement = document.querySelector('.calendar-wrapper')
-		window.addEventListener('keydown', this.keyboardCloseEditor)
-		window.addEventListener('keydown', this.keyboardSaveEvent)
-		window.addEventListener('keydown', this.keyboardDeleteEvent)
-		window.addEventListener('keydown', this.keyboardDuplicateEvent)
 		window.addEventListener('resize', this.handleResize)
 
 		this.$nextTick(() => {
@@ -550,11 +579,10 @@ export default {
 	},
 
 	beforeUnmount() {
-		window.removeEventListener('keydown', this.keyboardCloseEditor)
-		window.removeEventListener('keydown', this.keyboardSaveEvent)
-		window.removeEventListener('keydown', this.keyboardDeleteEvent)
-		window.removeEventListener('keydown', this.keyboardDuplicateEvent)
 		window.removeEventListener('resize', this.handleResize)
+		if (this.returnFocusElement?.isConnected) {
+			this.returnFocusElement.focus()
+		}
 
 		// Clean up resize timeout
 		if (this.resizeTimeout) {
@@ -646,7 +674,7 @@ export default {
 			const targetElement = this.getDomElementForPopover(isNew, this.$route)
 
 			if (!targetElement) {
-				console.warn('[calendar] EditSimple: No target element found for popover')
+				logger.warn('[calendar] EditSimple: No target element found for popover')
 				return
 			}
 
@@ -664,11 +692,13 @@ export default {
 
 		/**
 		 * Calculate the popover position based on target element
+		 *
+		 * @param {Element} targetElement The element to position the popover relative to
 		 */
 		calculateAndApplyPosition(targetElement) {
 			const SPACING = 16
 			// In Vue 3, this.$el might be a comment node, so we need to check if querySelector exists
-			let existingPopover = null
+			let existingPopover
 			if (this.$el && typeof this.$el.querySelector === 'function') {
 				existingPopover = this.$el.querySelector('.event-popover')
 			} else {
@@ -721,8 +751,8 @@ export default {
 			const spaceRight = boundaryRect.right - targetRect.right - SPACING
 			const spaceLeft = targetRect.left - boundaryRect.left - SPACING
 
-			let top = targetRect.bottom + SPACING
-			let left = targetRect.left
+			let top
+			let left
 
 			// If target element doesn't exist yet (fallback element), center in boundary
 			if (isTargetFallback) {
@@ -805,7 +835,7 @@ export default {
 				position: 'fixed',
 				top: `${top}px`,
 				left: `${left}px`,
-				zIndex: 9999,
+				zIndex: 9997,
 				maxWidth: '100vw',
 				maxHeight: `${maxH}px`,
 			}
@@ -829,21 +859,22 @@ export default {
 		 * Save changes and leave when creating a new event or return to viewing mode when editing
 		 * an existing event. Stay in editing mode if an error occurrs.
 		 *
-		 * @param {boolean} thisAndAllFuture Modify this and all future events
+		 * @param {string} scope Modification scope: 'occurrence', 'future', or 'series'
 		 * @return {Promise<void>}
 		 */
-		async saveAndView(thisAndAllFuture) {
+		async saveAndView(scope) {
 			// Transitioning from new to edit routes is not implemented for now
 			if (this.isNew) {
-				await this.saveAndLeave(thisAndAllFuture)
+				await this.saveAndLeave(scope)
 				return
 			}
 
 			this.isViewing = true
 			try {
-				await this.save(thisAndAllFuture)
+				await this.save(scope)
 				this.requiresActionOnRouteLeave = false
 			} catch (error) {
+				logger.error('Failed to save event, reverting to edit mode', { error })
 				this.isViewing = false
 			}
 		},
@@ -865,7 +896,7 @@ export default {
 <style lang="scss" scoped>
 .modal-mask {
 	position: fixed;
-	z-index: 9998;
+	z-index: 9996;
 	//the height of header
 	top: 50px;
 	inset-inline-start: 0;
@@ -896,6 +927,10 @@ export default {
 	box-shadow: 0 4px 20px rgba(0, 0, 0, .8);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
+
+	&:focus {
+		outline: none;
+	}
 }
 
 .event-popover .event-popover__inner {
@@ -922,6 +957,11 @@ export default {
 		:deep(.calendar-picker-header) {
 			margin-inline-start: 0;
 			margin-bottom: calc(var(--default-grid-baseline) * 2);
+
+			&::after {
+				content: '';
+				flex: 0 0 calc(var(--default-grid-baseline) * 11);
+			}
 		}
 
 		.event-popover__cancelled {
@@ -934,6 +974,8 @@ export default {
 		flex: 1;
 		flex-direction: column;
 		gap: calc(var(--default-grid-baseline) * 4);
+		margin-inline-start: calc(var(--default-grid-baseline) * -1);
+		padding-inline-start: var(--default-grid-baseline);
 		padding-inline-end: calc(var(--default-grid-baseline) * 4);
 		overflow-y: auto;
 		overflow-x: hidden;
@@ -955,7 +997,10 @@ export default {
 		padding-top: calc(var(--default-grid-baseline) * 2);
 		background: var(--color-main-background);
 	}
-	.event-popover__all-day {
+	.event-popover__date-options {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
 		margin-inline-start: calc(var(--default-grid-baseline) * 11);
 	}
 

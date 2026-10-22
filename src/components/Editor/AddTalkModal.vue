@@ -12,9 +12,12 @@
 		<div class="modal-content">
 			<NcEmptyContent
 				v-if="loading"
-				icon="icon-loading"
 				class="modal__content__loading"
-				:description="t('calendar', 'Fetching Talk rooms…')" />
+				:description="t('calendar', 'Fetching Talk rooms…')">
+				<template #icon>
+					<NcLoadingIcon decorative />
+				</template>
+			</NcEmptyContent>
 			<NcEmptyContent
 				v-else-if="talkConversations.length === 0"
 				:description="t('calendar', 'No Talk room available')" />
@@ -87,13 +90,15 @@ import {
 	NcFormBoxButton,
 	NcFormGroup,
 	NcListItem,
+	NcLoadingIcon,
 	NcModal,
 } from '@nextcloud/vue'
 import md5 from 'md5'
-import { mapStores } from 'pinia'
+import { mapState } from 'pinia'
 import IconAdd from 'vue-material-design-icons/Plus.vue'
-import useCalendarObjectInstanceStore from '../../store/calendarObjectInstance.js'
 import { addParticipantAsModerator, createRoom, generateRoomUrl, listRooms } from '@/services/talkService'
+import useCalendarObjectInstanceStore from '@/store/calendarObjectInstance.js'
+import logger from '@/utils/logger.js'
 
 // Ref https://github.com/nextcloud/spreed/blob/main/docs/constants.md
 const CONVERSATION_TYPE_GROUP = 2
@@ -117,14 +122,10 @@ export default {
 		NcFormBoxButton,
 		NcListItem,
 		NcFormGroup,
+		NcLoadingIcon,
 	},
 
 	props: {
-		calendarObjectInstance: {
-			type: Object,
-			required: true,
-		},
-
 		delegatorUserId: {
 			type: String,
 			default: null,
@@ -150,7 +151,7 @@ export default {
 	},
 
 	computed: {
-		...mapStores(useCalendarObjectInstanceStore, ['calendarObjectInstance']),
+		...mapState(useCalendarObjectInstanceStore, ['calendarObjectInstance']),
 		/**
 		 * @return {object[]} Talk conversations sorted by most recent activity
 		 */
@@ -180,7 +181,7 @@ export default {
 						&& conversation.objectType !== CONVERSATION_OBJECT_TYPE_VIDEO_VERIFICATION))
 					&& conversation.objectType !== CONVERSATION_OBJECT_TYPE_EVENT)
 			} catch (error) {
-				console.error('Error fetching Talk conversations:', error)
+				logger.error('Error fetching Talk conversations:', { error })
 				showError(this.$t('calendar', 'Error fetching Talk conversations.'))
 			} finally {
 				this.loading = false
@@ -189,6 +190,38 @@ export default {
 
 		selectRoom(conversation) {
 			this.selectedRoom = conversation
+		},
+
+		/**
+		 * Add the conversation as the event's conference, and add its link to the
+		 * location if it is empty or append it to the description otherwise.
+		 *
+		 * @param {string} url The conversation URL
+		 */
+		applyConversationLink(url) {
+			const eventComponent = this.calendarObjectInstance?.eventComponent
+			if (eventComponent?.addConference) {
+				// Replace an earlier conversation rather than stacking a second one
+				for (const conference of [...eventComponent.getConferenceList()]) {
+					eventComponent.deleteProperty(conference)
+				}
+
+				eventComponent.addConference(url, this.$t('calendar', 'Nextcloud Talk'), ['AUDIO', 'VIDEO', 'CHAT'])
+			}
+
+			if ((this.calendarObjectInstance.location ?? '').trim() === '') {
+				this.$emit('updateLocation', url)
+				showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to location.'))
+				return
+			}
+
+			const NEW_LINE = '\r\n'
+			const description = this.calendarObjectInstance.description
+				? this.calendarObjectInstance.description + NEW_LINE + NEW_LINE + url
+				: url
+
+			this.$emit('updateDescription', description)
+			showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to description.'))
 		},
 
 		async selectConversation(conversation) {
@@ -200,28 +233,10 @@ export default {
 					return
 				}
 
-				if ((this.calendarObjectInstance.location ?? '').trim() === '') {
-					this.calendarObjectInstanceStore.changeLocation({
-						calendarObjectInstance: this.calendarObjectInstance,
-						location: url,
-					})
-					showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to location.'))
-				} else {
-					const NEW_LINE = '\r\n'
-					const updatedDescription = this.calendarObjectInstance.description
-						? this.calendarObjectInstance.description + NEW_LINE + NEW_LINE + url
-						: url
-
-					this.calendarObjectInstanceStore.changeDescription({
-						calendarObjectInstance: this.calendarObjectInstance,
-						description: updatedDescription,
-					})
-					showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to description.'))
-				}
-
+				this.applyConversationLink(url)
 				this.selectedConversation = conversation
 			} catch (error) {
-				console.error('Error applying conversation to event:', error)
+				logger.error('Error applying conversation to event:', { error })
 				showError(this.$t('calendar', 'Failed to apply Talk room.'))
 			} finally {
 				this.closeModal()
@@ -229,7 +244,6 @@ export default {
 		},
 
 		async createTalkRoom(type) {
-			const NEW_LINE = '\r\n'
 			try {
 				this.creatingTalkRoom = true
 
@@ -250,7 +264,7 @@ export default {
 					try {
 						await addParticipantAsModerator(room.token, this.delegatorUserId)
 					} catch (error) {
-						console.error('Failed to add delegator as moderator:', error)
+						logger.error('Failed to add delegator as moderator:', { error })
 					}
 				}
 
@@ -259,20 +273,10 @@ export default {
 					throw new Error('Failed to generate URL from token')
 				}
 
-				if ((this.calendarObjectInstance.location ?? '').trim() === '') {
-					this.$emit('updateLocation', url)
-					showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to location.'))
-				} else {
-					const newDescription = this.calendarObjectInstance.description
-						? this.calendarObjectInstance.description + NEW_LINE + NEW_LINE + url + NEW_LINE
-						: url
-
-					this.$emit('updateDescription', newDescription)
-					showSuccess(this.$t('calendar', 'Successfully added Talk conversation link to description.'))
-				}
+				this.applyConversationLink(url)
 				this.closeModal()
 			} catch (error) {
-				console.error('Error creating Talk room:', error)
+				logger.error('Error creating Talk room:', { error })
 				showError(this.$t('calendar', 'Error creating Talk conversation'))
 			} finally {
 				this.creatingTalkRoom = false

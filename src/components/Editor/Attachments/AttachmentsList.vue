@@ -11,60 +11,79 @@
 			multiple
 			:aria-label="t('calendar', 'Upload files as attachments')"
 			@change="onLocalAttachmentSelected">
-		<div class="attachments-summary">
-			<div class="attachments-summary-inner">
-				<Paperclip :size="20" />
-				<div v-if="attachments.length > 0" class="attachments-summary-inner-label">
-					{{ n('calendar', '{count} attachment', '{count} attachments', attachments.length, { count: attachments.length }) }}
+		<template v-if="!compact">
+			<div class="attachments-summary">
+				<div class="attachments-summary-inner">
+					<Paperclip :size="20" />
+					<div v-if="attachments.length > 0" class="attachments-summary-inner-label">
+						{{ n('calendar', '{count} attachment', '{count} attachments', attachments.length, { count: attachments.length }) }}
+					</div>
+					<div v-else class="attachments-summary-inner-label">
+						{{ t('calendar', 'No attachments') }}
+					</div>
 				</div>
-				<div v-else class="attachments-summary-inner-label">
-					{{ t('calendar', 'No attachments') }}
-				</div>
-			</div>
 
-			<NcActions v-if="!isReadOnly">
-				<template #icon>
-					<Plus :size="20" />
-				</template>
-				<NcActionButton closeAfterClick="true" @click="openFilesModal()">
+				<NcActions v-if="!isReadOnly">
 					<template #icon>
-						<Folder :size="20" />
+						<Plus :size="20" />
 					</template>
-					{{ t('calendar', 'Add from Files') }}
-				</NcActionButton>
-				<NcActionButton closeAfterClick="true" @click="clickOnUploadButton">
-					<template #icon>
-						<Upload :size="20" />
-					</template>
-					{{ t('calendar', 'Upload from device') }}
-				</NcActionButton>
-			</NcActions>
-		</div>
-		<div v-if="attachments.length > 0">
-			<ul class="attachments-list">
-				<NcListItem
+					<NcActionButton closeAfterClick="true" @click="openFilesModal()">
+						<template #icon>
+							<Folder :size="20" />
+						</template>
+						{{ t('calendar', 'Add from Files') }}
+					</NcActionButton>
+					<NcActionButton closeAfterClick="true" @click="clickOnUploadButton">
+						<template #icon>
+							<Upload :size="20" />
+						</template>
+						{{ t('calendar', 'Upload from device') }}
+					</NcActionButton>
+				</NcActions>
+			</div>
+			<div v-if="attachments.length > 0">
+				<ul class="attachments-list">
+					<NcListItem
+						v-for="attachment in attachments"
+						:key="attachment.path"
+						class="attachments-list-item"
+						:forceDisplayActions="true"
+						:name="getBaseName(attachment.fileName)"
+						@click="openFile(attachment.uri)">
+						<template #icon>
+							<img :src="getPreview(attachment)" class="attachment-icon">
+						</template>
+						<template #actions>
+							<NcActionButton
+								v-if="!isReadOnly"
+								closeAfterClick="true"
+								@click="deleteAttachmentFromEvent(attachment)">
+								<template #icon>
+									<Close :size="20" />
+								</template>
+								{{ t('calendar', 'Delete file') }}
+							</NcActionButton>
+						</template>
+					</NcListItem>
+				</ul>
+			</div>
+		</template>
+		<div v-else-if="attachments.length > 0" class="attachments-compact">
+			<Paperclip :size="20" class="attachments-compact-icon" />
+			<div class="attachments-compact-chips">
+				<NcChip
 					v-for="attachment in attachments"
 					:key="attachment.path"
-					class="attachments-list-item"
-					:forceDisplayActions="true"
-					:name="getBaseName(attachment.fileName)"
-					@click="openFile(attachment.uri)">
+					class="attachments-compact-chip"
+					:text="getBaseName(attachment.fileName)"
+					:noClose="isReadOnly"
+					@click="openFile(attachment.uri)"
+					@close="deleteAttachmentFromEvent(attachment)">
 					<template #icon>
-						<img :src="getPreview(attachment)" class="attachment-icon">
+						<img :src="getPreview(attachment)" class="attachments-compact-chip-icon">
 					</template>
-					<template #actions>
-						<NcActionButton
-							v-if="!isReadOnly"
-							closeAfterClick="true"
-							@click="deleteAttachmentFromEvent(attachment)">
-							<template #icon>
-								<Close :size="20" />
-							</template>
-							{{ t('calendar', 'Delete file') }}
-						</NcActionButton>
-					</template>
-				</NcListItem>
-			</ul>
+				</NcChip>
+			</div>
 		</div>
 
 		<NcDialog
@@ -85,10 +104,11 @@ import { generateUrl, getBaseUrl } from '@nextcloud/router'
 import {
 	NcActionButton,
 	NcActions,
+	NcChip,
 	NcDialog,
 	NcListItem,
 } from '@nextcloud/vue'
-import { mapStores } from 'pinia'
+import { mapState, mapStores } from 'pinia'
 import { parseXML } from 'webdav'
 import Close from 'vue-material-design-icons/Close.vue'
 import Folder from 'vue-material-design-icons/FolderOutline.vue'
@@ -98,11 +118,11 @@ import Upload from 'vue-material-design-icons/UploadOutline.vue'
 import {
 	getFileInfo,
 	uploadLocalAttachment,
-} from '../../../services/attachmentService.js'
-import useCalendarObjectInstanceStore from '../../../store/calendarObjectInstance.js'
-import usePrincipalsStore from '../../../store/principals.js'
-import useSettingsStore from '../../../store/settings.js'
-import logger from '../../../utils/logger.js'
+} from '@/services/attachmentService.js'
+import useCalendarObjectInstanceStore from '@/store/calendarObjectInstance.js'
+import usePrincipalsStore from '@/store/principals.js'
+import useSettingsStore from '@/store/settings.js'
+import logger from '@/utils/logger.js'
 
 export default {
 	name: 'AttachmentsList',
@@ -110,6 +130,7 @@ export default {
 		NcListItem,
 		NcActions,
 		NcActionButton,
+		NcChip,
 		Upload,
 		Close,
 		Folder,
@@ -119,14 +140,14 @@ export default {
 	},
 
 	props: {
-		calendarObjectInstance: {
-			type: Object,
-			required: true,
-		},
-
 		isReadOnly: {
 			type: Boolean,
 			default: true,
+		},
+
+		compact: {
+			type: Boolean,
+			default: false,
 		},
 	},
 
@@ -141,6 +162,7 @@ export default {
 
 	computed: {
 		...mapStores(usePrincipalsStore, useSettingsStore, useCalendarObjectInstanceStore),
+		...mapState(useCalendarObjectInstanceStore, ['calendarObjectInstance']),
 		currentUser() {
 			return this.principalsStore.getCurrentUserPrincipal
 		},
@@ -160,7 +182,6 @@ export default {
 
 		deleteAttachmentFromEvent(attachment) {
 			this.calendarObjectInstanceStore.deleteAttachment({
-				calendarObjectInstance: this.calendarObjectInstance,
 				attachment,
 			})
 		},
@@ -339,17 +360,10 @@ export default {
 		:deep(.list-item) {
 			padding: 0 8px;
 		}
-		:deep(.list-item-content__wrapper) {
-			height: 44px;
-		}
 
 		:deep(.list-item-content) {
 			// Align text with other properties
 			padding-inline-start: 18px;
-		}
-
-		:deep(.line-one__title) {
-			font-weight: unset;
 		}
 	}
 }
@@ -373,6 +387,29 @@ export default {
 	width: 24px;
 	height: 24px;
 	border-radius: var(--border-radius);
+}
+
+.attachments-compact {
+	display: flex;
+	align-items: center;
+	gap: 8px;
+
+	.attachments-compact-icon {
+		flex-shrink: 0;
+	}
+
+	.attachments-compact-chips {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 4px;
+	}
+}
+
+.attachments-compact-chip-icon {
+	width: var(--chip-size);
+	height: var(--chip-size);
+	border-radius: var(--border-radius);
+	object-fit: cover;
 }
 
 .external-link-message {

@@ -18,13 +18,13 @@ import {
 } from '@nextcloud/vue'
 import { computed, ref, watch } from 'vue'
 import CheckIcon from 'vue-material-design-icons/Check.vue'
-import CheckedDurationSelect from './AppointmentConfigModal/CheckedDurationSelect.vue'
-import Confirmation from './AppointmentConfigModal/Confirmation.vue'
-import DurationInput from './AppointmentConfigModal/DurationInput.vue'
-import DurationSelect from './AppointmentConfigModal/DurationSelect.vue'
-import NumberInput from './AppointmentConfigModal/NumberInput.vue'
-import VisibilitySelect from './AppointmentConfigModal/VisibilitySelect.vue'
-import CalendarPicker from './Shared/CalendarPicker.vue'
+import CheckedDurationSelect from '@/components/AppointmentConfigModal/CheckedDurationSelect.vue'
+import Confirmation from '@/components/AppointmentConfigModal/Confirmation.vue'
+import DurationInput from '@/components/AppointmentConfigModal/DurationInput.vue'
+import DurationSelect from '@/components/AppointmentConfigModal/DurationSelect.vue'
+import NumberInput from '@/components/AppointmentConfigModal/NumberInput.vue'
+import VisibilitySelect from '@/components/AppointmentConfigModal/VisibilitySelect.vue'
+import CalendarPicker from '@/components/Shared/CalendarPicker.vue'
 import AppointmentConfig from '@/models/appointmentConfig.js'
 import useAppointmentConfigsStore from '@/store/appointmentConfigs.js'
 import useCalendarsStore from '@/store/calendars.js'
@@ -86,13 +86,7 @@ const availableCalendars = computed<CalendarInterface[]>(() => {
 })
 
 const calendar = computed<CalendarInterface | undefined>(() => {
-	if (!editing.value.targetCalendarUri) {
-		return availableCalendars.value[0]
-	}
-
-	const uri = editing.value.targetCalendarUri
-	const calendar = availableCalendars.value.find((cal) => calendarUrlToUri(cal.url) === uri)
-	return calendar || availableCalendars.value[0]
+	return findCalendarByUri(editing.value.targetCalendarUri, availableCalendars.value) ?? availableCalendars.value[0]
 })
 
 const selectableConflictCalendars = computed<CalendarInterface[]>(() => {
@@ -126,6 +120,13 @@ function reset(): void {
 		editing.value.name = `${editing.value.name} ${t('calendar', '(copy)')}`
 	}
 
+	// The target calendar may have been deleted since the config was saved.
+	// Persist the fallback calendar so a save without touching the picker
+	// doesn't keep referencing the deleted calendar.
+	if (editing.value.targetCalendarUri && !findCalendarByUri(editing.value.targetCalendarUri, availableCalendars.value) && availableCalendars.value[0]) {
+		changeCalendar(availableCalendars.value[0])
+	}
+
 	enablePreparationDuration.value = !!editing.value.preparationDuration
 	enableFollowupDuration.value = !!editing.value.followupDuration
 	enableFutureLimit.value = !!editing.value.futureLimit
@@ -142,6 +143,13 @@ function calendarUrlToUri(url: string): string {
 	const parts = url.replace(/\/$/, '').split('/')
 	// The last one is the URI
 	return parts[parts.length - 1]
+}
+
+function findCalendarByUri(uri: string | null | undefined, calendars: CalendarInterface[]): CalendarInterface | undefined {
+	if (!uri) {
+		return undefined
+	}
+	return calendars.find((calendar) => calendarUrlToUri(calendar.url) === uri)
 }
 
 function changeCalendar(calendar: CalendarInterface): void {

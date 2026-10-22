@@ -41,9 +41,9 @@
 <script>
 import { NcSelect } from '@nextcloud/vue'
 import { mapStores } from 'pinia'
-import CalendarPickerOption from './CalendarPickerOption.vue'
-import useCalendarsStore from '../../store/calendars.js'
-import { randomId } from '../../utils/randomId.js'
+import CalendarPickerOption from '@/components/Shared/CalendarPickerOption.vue'
+import useCalendarsStore from '@/store/calendars.js'
+import { randomId } from '@/utils/randomId.js'
 
 export default {
 	name: 'CalendarPicker',
@@ -102,7 +102,7 @@ export default {
 		 */
 		isCalendarSelectable: {
 			type: Function,
-			default: (calendar) => true,
+			default: () => true,
 		},
 	},
 
@@ -137,7 +137,7 @@ export default {
 		/**
 		 * TODO: this should emit the calendar id instead
 		 *
-		 * @param {{id: string}|{id: string}[]} options All selected options (including the new one)
+		 * @param {{id: string}} optionId The selected option
 		 */
 		change(optionId) {
 			if (!optionId) {
@@ -210,22 +210,6 @@ export default {
 	},
 }
 </script>
-
-<style lang="scss" scoped>
-:deep(.multiselect__tags) {
-	margin: 3px 0;
-}
-
-.calendar-picker__tag {
-	border: 1px solid var(--color-border);
-	border-radius: var(--border-radius);
-	padding: 0 5px;
-}
-
-.calendar-picker__tag + .calendar-picker__tag {
-	margin-inline-start: 5px;
-}
-</style>
 
 <style lang="scss">
 .vs__search {

@@ -29,7 +29,7 @@
 				:deselectFromDropdown="false"
 				:createOption="(label) => ({ value: label, label })"
 				:inputId="readableName + '-select-multiple-input'"
-				:ariaLabelCombobox="readableName"
+				:inputLabel="readableName"
 				:ariaLabelListbox="readableName"
 				label="label"
 				@option:selecting="tag"
@@ -56,9 +56,9 @@
 import { getLocale } from '@nextcloud/l10n'
 import { NcSelect } from '@nextcloud/vue'
 import InformationVariant from 'vue-material-design-icons/InformationVariant.vue'
-import PropertySelectMultipleColoredOption from './PropertySelectMultipleColoredOption.vue'
-import PropertySelectMultipleColoredTag from './PropertySelectMultipleColoredTag.vue'
-import PropertyMixin from '../../../mixins/PropertyMixin.js'
+import PropertySelectMultipleColoredOption from '@/components/Editor/Properties/PropertySelectMultipleColoredOption.vue'
+import PropertySelectMultipleColoredTag from '@/components/Editor/Properties/PropertySelectMultipleColoredTag.vue'
+import PropertyMixin from '@/mixins/PropertyMixin.js'
 
 export default {
 	name: 'PropertySelectMultiple',

@@ -2,6 +2,67 @@
   - SPDX-FileCopyrightText: 2021 Nextcloud GmbH and Nextcloud contributors
   - SPDX-License-Identifier: AGPL-3.0-or-later
 -->
+<script setup lang="ts">
+import type {
+	AppointmentSavePayload,
+	AppointmentSlot,
+	AppointmentUserInfo,
+	AppointmentVisitorInfo,
+	PublicAppointmentConfig,
+} from '@/types/appointments.ts'
+
+import {
+	NcAvatar as Avatar,
+	NcButton,
+	NcLoadingIcon,
+	NcNoteCard,
+	NcTextArea,
+	NcTextField,
+} from '@nextcloud/vue'
+import { computed, ref } from 'vue'
+import IconBack from 'vue-material-design-icons/ArrowLeft.vue'
+import IconCalendar from 'vue-material-design-icons/CalendarOutline.vue'
+import IconCheck from 'vue-material-design-icons/CheckOutline.vue'
+import IconTime from 'vue-material-design-icons/ClockTimeFourOutline.vue'
+import IconTimezone from 'vue-material-design-icons/Web.vue'
+import { timeStampToLocaleDate, timeStampToLocaleTime } from '@/utils/localeTime.js'
+
+const props = defineProps<{
+	config: PublicAppointmentConfig
+	timeSlot: AppointmentSlot
+	userInfo: AppointmentUserInfo
+	visitorInfo: AppointmentVisitorInfo
+	timeZoneId: string
+	showRateLimitingWarning: boolean
+	showError: boolean
+	isLoading: boolean
+}>()
+
+const emit = defineEmits<{
+	goBack: []
+	save: [payload: AppointmentSavePayload]
+}>()
+
+const description = ref('')
+const email = ref(props.visitorInfo.email)
+const displayName = ref(props.visitorInfo.displayName)
+const timeZone = ref(props.timeZoneId)
+
+const startTime = computed<string>(() => timeStampToLocaleTime(props.timeSlot.start, props.timeZoneId))
+const endTime = computed<string>(() => timeStampToLocaleTime(props.timeSlot.end, props.timeZoneId))
+const date = computed<string>(() => timeStampToLocaleDate(props.timeSlot.start, props.timeZoneId))
+
+function save(): void {
+	emit('save', {
+		slot: props.timeSlot,
+		description: description.value,
+		email: email.value,
+		displayName: displayName.value,
+		timeZone: timeZone.value,
+	})
+}
+</script>
+
 <template>
 	<div class="booking-appointment-details">
 		<div class="booking-appointment-wrapper">
@@ -45,7 +106,6 @@
 				</div>
 				<div class="email-details">
 					<NcTextField
-						ref="email"
 						v-model="email"
 						type="email"
 						:label="$t('calendar', 'Your email address')"
@@ -94,127 +154,13 @@
 	</div>
 </template>
 
-<script>
-import {
-	NcAvatar as Avatar,
-	NcButton,
-	NcLoadingIcon,
-	NcNoteCard,
-	NcTextArea,
-	NcTextField,
-} from '@nextcloud/vue'
-import IconBack from 'vue-material-design-icons/ArrowLeft.vue'
-import IconCalendar from 'vue-material-design-icons/CalendarOutline.vue'
-import IconCheck from 'vue-material-design-icons/CheckOutline.vue'
-import IconTime from 'vue-material-design-icons/ClockTimeFourOutline.vue'
-import IconTimezone from 'vue-material-design-icons/Web.vue'
-import autosize from '../../directives/autosize.js'
-import { timeStampToLocaleDate, timeStampToLocaleTime } from '../../utils/localeTime.js'
-
-export default {
-	name: 'AppointmentDetails',
-	components: {
-		Avatar,
-		NcButton,
-		NcLoadingIcon,
-		NcNoteCard,
-		NcTextArea,
-		NcTextField,
-		IconCheck,
-		IconTime,
-		IconCalendar,
-		IconBack,
-		IconTimezone,
-	},
-
-	directives: {
-		autosize,
-	},
-
-	props: {
-		config: {
-			required: true,
-			type: Object,
-		},
-
-		timeSlot: {
-			required: true,
-			type: Object,
-		},
-
-		userInfo: {
-			required: true,
-			type: Object,
-		},
-
-		visitorInfo: {
-			required: true,
-			type: Object,
-		},
-
-		timeZoneId: {
-			required: true,
-			type: String,
-		},
-
-		showRateLimitingWarning: {
-			required: true,
-			type: Boolean,
-		},
-
-		showError: {
-			required: true,
-			type: Boolean,
-		},
-
-		isLoading: {
-			required: true,
-			type: Boolean,
-		},
-	},
-
-	emits: ['goBack', 'save'],
-
-	data() {
-		return {
-			description: '',
-			email: this.visitorInfo.email,
-			displayName: this.visitorInfo.displayName,
-			timeZone: this.timeZoneId,
-		}
-	},
-
-	computed: {
-		startTime() {
-			return timeStampToLocaleTime(this.timeSlot.start, this.timeZoneId)
-		},
-
-		endTime() {
-			return timeStampToLocaleTime(this.timeSlot.end, this.timeZoneId)
-		},
-
-		date() {
-			return timeStampToLocaleDate(this.timeSlot.start, this.timeZoneId)
-		},
-	},
-
-	methods: {
-		save() {
-			this.$emit('save', {
-				slot: this.timeSlot,
-				description: this.description,
-				email: this.email,
-				displayName: this.displayName,
-				timeZone: this.timeZone,
-			})
-		},
-	},
-}
-</script>
-
 <style lang="scss" scoped>
 h3 {
 	margin-top: 0;
+}
+
+.booking__name {
+	overflow-wrap: anywhere;
 }
 
 .booking__date, .booking__time {
@@ -231,8 +177,6 @@ h3 {
 	flex-wrap: wrap;
 	width: calc(100vw - 120px);
 	max-width: 720px;
-	max-height: 500px;
-	overflow: auto;
 }
 
 .booking-appointment-wrapper {
@@ -261,10 +205,6 @@ h3 {
 	margin-inline-end:5px
 }
 
-.booking-error {
-	color: var(--color-error);
-}
-
 .booking__description,
 .name-details,
 .email-details {
@@ -280,31 +220,6 @@ h3 {
 
 	.button {
 		margin: 0;
-	}
-}
-
-.add-guest {
-	display: block;
-	color: var(--color-primary-element);
-	background-color: transparent;
-}
-
-.meeting-text {
-	display: grid;
-	align-items: center;
-
-	textarea {
-		display: block;
-		resize: vertical;
-		grid-area: 1 / 1;
-		width: 100%;
-		margin: 3px 3px 3px 0;
-		padding: 7px 6px;
-		color: var(--color-main-text);
-		border: 1px solid var(--color-border-dark);
-		border-radius: var(--border-radius);
-		background-color: var(--color-main-background);
-		cursor: text;
 	}
 }
 </style>

@@ -18,8 +18,29 @@ permissions:
   contents: read
 
 jobs:
+  changes:
+    runs-on: ubuntu-latest-low
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      backend: ${{ steps.changes.outputs.backend }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          fetch-depth: 1
+          sparse-checkout: .github/changes-filters.yml
+          sparse-checkout-cone-mode: false
+      - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        id: changes
+        continue-on-error: true
+        with:
+          filters: .github/changes-filters.yml
+
   matrix:
     runs-on: ubuntu-latest-low
+    needs: changes
+    if: needs.changes.outputs.backend != 'false'
     outputs:
       ocp-matrix: ${{ steps.versions.outputs.ocp-matrix }}
     steps:
@@ -30,7 +51,7 @@ jobs:
 
       - name: Get version matrix
         id: versions
-        uses: icewind1991/nextcloud-version-matrix@8a7bac6300b2f0f3100088b297995a229558ddba # v1.3.2
+        uses: icewind1991/nextcloud-version-matrix@cd0211ffcef1065e2020cd579e4843b8746e7a58 # v1.3.3
 
       - name: Check enforcement of minimum PHP version ${{ steps.versions.outputs.php-min }} in psalm.xml
         run: grep 'phpVersion="${{ steps.versions.outputs.php-min }}' psalm.xml
@@ -51,7 +72,7 @@ jobs:
           persist-credentials: false
 
       - name: Set up php${{ matrix.php-min }}
-        uses: shivammathur/setup-php@f3e473d116dcccaddc5834248c87452386958240 # 2.37.2 with verbose logging due to stuck runs
+        uses: shivammathur/setup-php@eb7c497e18156a6bbabfef1d3a82760b9eda3962 # 2.40.0 with verbose logging due to stuck runs
         with:
           php-version: ${{ matrix.php-min }}
           extensions: bz2, ctype, curl, dom, fileinfo, gd, iconv, intl, json, libxml, mbstring, openssl, pcntl, posix, session, simplexml, xmlreader, xmlwriter, zip, zlib, sqlite, pdo_sqlite
@@ -86,4 +107,4 @@ jobs:
 
     steps:
       - name: Summary status
-        run: if ${{ needs.static-analysis.result != 'success' }}; then exit 1; fi
+        run: if ${{ needs.static-analysis.result != 'success' && needs.static-analysis.result != 'skipped' }}; then exit 1; fi

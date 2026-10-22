@@ -11,9 +11,11 @@ namespace OCA\Calendar\Service\Proposal;
 
 use DateTimeZone;
 use Exception;
+use OCA\Calendar\AppInfo\Application;
 use OCA\Calendar\Db\ProposalDateMapper;
 use OCA\Calendar\Db\ProposalMapper;
 use OCA\Calendar\Db\ProposalParticipantMapper;
+use OCA\Calendar\Db\ProposalVoteEntry;
 use OCA\Calendar\Db\ProposalVoteMapper;
 use OCA\Calendar\Objects\Proposal\ProposalCollection;
 use OCA\Calendar\Objects\Proposal\ProposalDateCollection;
@@ -41,6 +43,8 @@ use OCP\Mail\IMailer;
 use OCP\Mail\Provider\Address;
 use OCP\Mail\Provider\IManager as IMailManager;
 use OCP\Mail\Provider\IMessageSend;
+use OCP\Notification\IManager as INotificationManager;
+use OCP\Util;
 use Psr\Log\LoggerInterface;
 use Sabre\VObject\Component\VCalendar;
 use Sabre\VObject\Component\VEvent;
@@ -62,6 +66,7 @@ class ProposalService {
 		private IMailer $systemMailManager,
 		private IMailManager $userMailManager,
 		private IManager $calendarManager,
+		private INotificationManager $notificationManager,
 	) {
 	}
 
@@ -365,17 +370,16 @@ class ProposalService {
 			]);
 		}
 
-		// convert existing calendar blocker to event if it exists, otherwise create a new event in the user's calendar
+		// remove existing calendar blocker, as the meeting reuses its UID
 		$result = $this->findCalendarBlocker($user, $proposal);
 		if ($result !== null) {
-			$this->applyCalendarBlockersOrganizer($user, $result['calendarUri'], $result['eventUri'], $vObject);
-		} else {
-			$userCalendar->createFromString(
-				Uuid::v4()->toRfc4122() . '.ics',
-				$vObject->serialize()
-			);
+			$this->deleteCalendarBlockersOrganizer($user, $result['calendarUri'], $result['eventUri'], $proposal);
 		}
-		$this->applyCalendarBlockersParticipant($user, $proposal, 'M', $vObject);
+		// create the meeting through the scheduling server so participants receive invitations
+		$userCalendar->createFromString(
+			Uuid::v4()->toRfc4122() . '.ics',
+			$vObject->serialize()
+		);
 
 		// destroy the proposal entry
 		$this->proposalVoteMapper->deleteByProposalId($user->getUID(), $proposal->getId());
@@ -436,7 +440,7 @@ class ProposalService {
 			}
 			if ($foundDateEntry !== null) {
 				// create and save vote entry directly
-				$voteEntry = new \OCA\Calendar\Db\ProposalVoteEntry();
+				$voteEntry = new ProposalVoteEntry();
 				$voteEntry->setUid($participantEntry->getUid());
 				$voteEntry->setPid($participantEntry->getPid());
 				$voteEntry->setParticipantId($participantEntry->getId());
@@ -449,6 +453,23 @@ class ProposalService {
 		// update participant status to responded
 		$participantEntry->setStatus(ProposalParticipantStatus::Responded->value);
 		$this->proposalParticipantMapper->update($participantEntry);
+
+		// notify the organizer with a bell notification, if they opted in
+		$organizerUid = $participantEntry->getUid();
+		if ($proposalEntry->getResponseNotify() && $organizerUid !== null) {
+			$notification = $this->notificationManager->createNotification();
+			$notification->setApp(Application::APP_ID)
+				->setUser($organizerUid)
+				->setDateTime(new \DateTime())
+				->setObject('proposal', (string)$proposalEntry->getId())
+				->setSubject('proposal_response', [
+					'id' => $proposalEntry->getId(),
+					'name' => $proposalEntry->getTitle(),
+					'participantId' => $participantEntry->getId(),
+					'participantName' => $participantEntry->getName() ?? $participantEntry->getAddress(),
+				]);
+			$this->notificationManager->notify($notification);
+		}
 	}
 
 	private function generateNotifications(IUser $user, ProposalObject $proposal, string $reason): void {
@@ -575,7 +596,7 @@ class ProposalService {
 				// send message
 				$mailService->sendMessage($message);
 			} else {
-				$fromAddress = \OCP\Util::getDefaultEmailAddress('proposal-noreply');
+				$fromAddress = Util::getDefaultEmailAddress('proposal-noreply');
 				// construct symfony mailer message and set required parameters
 				$message = $this->systemMailManager->createMessage();
 				$message->setFrom([$fromAddress => $senderName]);
@@ -690,7 +711,7 @@ class ProposalService {
 	 */
 	private function applyCalendarBlockersOrganizer(IUser $user, string $calendarUri, ?string $eventUri, VCalendar $vObject): void {
 		/** @var \OCA\DAV\CalDAV\CalendarHome $calendarHome */
-		$calendarHome = (new InvitationResponseServer(false))->getServer()->tree->getNodeForPath('/calendars/' . $user->getUID());
+		$calendarHome = $this->getInvitationResponseServer()->getServer()->tree->getNodeForPath('/calendars/' . $user->getUID());
 		/** @var \OCA\DAV\CalDAV\Calendar $calendar */
 		$calendar = $calendarHome->getChild($calendarUri);
 
@@ -710,7 +731,7 @@ class ProposalService {
 	 */
 	private function deleteCalendarBlockersOrganizer(IUser $user, string $calendarUri, string $eventUri, ProposalObject $proposal): void {
 		/** @var \OCA\DAV\CalDAV\CalendarHome $calendarHome */
-		$calendarHome = (new InvitationResponseServer(false))->getServer()->tree->getNodeForPath('/calendars/' . $user->getUID());
+		$calendarHome = $this->getInvitationResponseServer()->getServer()->tree->getNodeForPath('/calendars/' . $user->getUID());
 		/** @var \OCA\DAV\CalDAV\Calendar $calendar */
 		$calendar = $calendarHome->getChild($calendarUri);
 
@@ -791,6 +812,10 @@ class ProposalService {
 			}
 		}
 		return null;
+	}
+
+	protected function getInvitationResponseServer(): InvitationResponseServer {
+		return new InvitationResponseServer(false);
 	}
 
 }

@@ -44,6 +44,7 @@
 							<NcButton
 								v-if="!showTimezoneSelect && !isAllDay && !isMobile"
 								variant="tertiary"
+								:aria-label="timezoneButtonLabel"
 								@click="showTimezoneSelect = !showTimezoneSelect">
 								<template #icon>
 									<IconTimezone :size="20" />
@@ -80,6 +81,7 @@
 				<NcButton
 					v-if="!showTimezoneSelect && (!isAllDay || isMobile)"
 					variant="tertiary"
+					:aria-label="timezoneButtonLabel"
 					@click="showTimezoneSelect = !showTimezoneSelect">
 					<template #icon>
 						<IconTimezone :size="20" />
@@ -140,9 +142,9 @@ import { NcButton, NcTimezonePicker } from '@nextcloud/vue'
 import { mapState } from 'pinia'
 import CalendarIcon from 'vue-material-design-icons/CalendarOutline.vue'
 import IconTimezone from 'vue-material-design-icons/Web.vue'
-import DatePicker from '../../Shared/DatePicker.vue'
-import getTimezoneManager from '../../../services/timezoneDataProviderService.js'
-import useSettingsStore from '../../../store/settings.js'
+import DatePicker from '@/components/Shared/DatePicker.vue'
+import getTimezoneManager from '@/services/timezoneDataProviderService.js'
+import useSettingsStore from '@/store/settings.js'
 import { getDateFromDateTimeValue } from '@/utils/date'
 
 export default {
@@ -261,6 +263,15 @@ export default {
 			}
 
 			return this.$t('calendar', 'Cannot modify all-day setting for events that are part of a recurrence-set.')
+		},
+
+		/**
+		 * Accessible name of the button that reveals the time zone pickers
+		 *
+		 * @return {string}
+		 */
+		timezoneButtonLabel() {
+			return this.$t('calendar', 'Change time zone (current: {timezone})', { timezone: this.startTimezone })
 		},
 
 		/**
@@ -519,12 +530,6 @@ export default {
 	.property-title-time-picker__time-pickers-from-inner__timezone span {
 		width: unset;
 	}
-}
-
-.property-title-time-picker__button {
-	display: flex;
-	gap: var(--default-grid-baseline);
-	font-weight: normal;
 }
 
 :deep(button.vs__open-indicator-button) {

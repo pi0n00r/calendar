@@ -3,29 +3,33 @@
  * SPDX-License-Identifier: AGPL-3.0-or-later
  */
 import { showInfo } from '@nextcloud/dialogs'
+import { emit } from '@nextcloud/event-bus'
 import { translate } from '@nextcloud/l10n'
-import { generateUrl } from '@nextcloud/router'
 import { createPinia, setActivePinia } from 'pinia'
-import eventClick from '../../../../../src/fullcalendar/interaction/eventClick.js'
-import EditorMixin from '../../../../../src/mixins/EditorMixin.js'
-import useSettingsStore from '../../../../../src/store/settings.js'
+import eventClick from '@/fullcalendar/interaction/eventClick.js'
+import EditorMixin from '@/mixins/EditorMixin.js'
+import useSettingsStore from '@/store/settings.js'
 import {
 	getPrefixedRoute,
-	isPublicOrEmbeddedRoute,
-} from '../../../../../src/utils/router.js'
+	getViewMode,
+	ViewMode,
+} from '@/utils/router.js'
 
-vi.mock('../../../../../src/utils/router.js')
-vi.mock('@nextcloud/router')
+vi.mock('@/utils/router.js')
 vi.mock('@nextcloud/l10n')
 vi.mock('@nextcloud/dialogs')
+vi.mock('@nextcloud/event-bus')
 
 describe('fullcalendar/eventClick test suite', () => {
 	beforeEach(() => {
 		getPrefixedRoute.mockClear()
-		isPublicOrEmbeddedRoute.mockClear()
-		generateUrl.mockClear()
+		getViewMode.mockClear()
+		// Default to a normal authenticated view so tests that don't care
+		// about public/embedded/widget behaviour don't need to set this up.
+		getViewMode.mockReturnValue(ViewMode.USER)
 		translate.mockClear()
 		showInfo.mockClear()
+		emit.mockClear()
 
 		setActivePinia(createPinia())
 	})
@@ -287,7 +291,7 @@ describe('fullcalendar/eventClick test suite', () => {
 		expect(router.push.mock.calls.length).toEqual(0)
 	})
 
-	it('should forward to the task app if enabled', () => {
+	it('should let the task link handle navigation if enabled', () => {
 		const settingsStore = useSettingsStore()
 		settingsStore.tasksEnabled = true
 
@@ -307,9 +311,7 @@ describe('fullcalendar/eventClick test suite', () => {
 				host: 'nextcloud.testing',
 			},
 		}
-
-		generateUrl
-			.mockReturnValueOnce('/generated-url')
+		const jsEvent = { preventDefault: vi.fn() }
 
 		const eventClickFunction = eventClick(router, route, window)
 		eventClickFunction({ event: {
@@ -319,12 +321,13 @@ describe('fullcalendar/eventClick test suite', () => {
 				recurrenceId: 'recurrence456',
 				objectType: 'VTODO',
 			},
-		}})
+		}, jsEvent })
 
-		expect(generateUrl).toHaveBeenCalledTimes(1)
-		expect(generateUrl).toHaveBeenNthCalledWith(1, 'apps/tasks/calendars/reminders/tasks/EAFB112A-4556-404A-B807-B1E040D0F7A0.ics')
-
-		expect(window.location.href).toEqual('/generated-url')
+		expect(jsEvent.preventDefault).not.toHaveBeenCalled()
+		expect(emit).toHaveBeenCalledWith('calendar:handle-todo-click', {
+			calendarId: 'reminders',
+			taskId: 'EAFB112A-4556-404A-B807-B1E040D0F7A0.ics',
+		})
 	})
 
 	it('should do nothing when tasks is disabled and route is public', () => {
@@ -347,10 +350,10 @@ describe('fullcalendar/eventClick test suite', () => {
 				host: 'nextcloud.testing',
 			},
 		}
-		const oldLocation = window.location
+		const jsEvent = { preventDefault: vi.fn() }
 
-		isPublicOrEmbeddedRoute
-			.mockReturnValueOnce(true)
+		getViewMode
+			.mockReturnValueOnce(ViewMode.PUBLIC)
 
 		const eventClickFunction = eventClick(router, route, window)
 		eventClickFunction({ event: {
@@ -360,13 +363,12 @@ describe('fullcalendar/eventClick test suite', () => {
 				recurrenceId: 'recurrence456',
 				objectType: 'VTODO',
 			},
-		}})
+		}, jsEvent })
 
-		expect(isPublicOrEmbeddedRoute).toHaveBeenCalledTimes(1)
-		expect(isPublicOrEmbeddedRoute).toHaveBeenNthCalledWith(1, 'EditFullView')
+		expect(getViewMode).toHaveBeenCalledTimes(1)
+		expect(getViewMode).toHaveBeenNthCalledWith(1, 'EditFullView', false)
 
-		expect(generateUrl).toHaveBeenCalledTimes(0)
-		expect(window.location).toEqual(oldLocation)
+		expect(jsEvent.preventDefault).toHaveBeenCalledTimes(1)
 	})
 
 	it('should show a hint to enable tasks app, when disabled but not public', () => {
@@ -389,10 +391,10 @@ describe('fullcalendar/eventClick test suite', () => {
 				host: 'nextcloud.testing',
 			},
 		}
-		const oldLocation = window.location
+		const jsEvent = { preventDefault: vi.fn() }
 
-		isPublicOrEmbeddedRoute
-			.mockReturnValueOnce(false)
+		getViewMode
+			.mockReturnValueOnce(ViewMode.USER)
 		translate
 			.mockReturnValue('translated hint')
 
@@ -404,7 +406,7 @@ describe('fullcalendar/eventClick test suite', () => {
 				recurrenceId: 'recurrence456',
 				objectType: 'VTODO',
 			},
-		}})
+		}, jsEvent })
 
 		expect(translate).toHaveBeenCalledTimes(1)
 		expect(translate).toHaveBeenNthCalledWith(1, 'calendar', 'Please ask your administrator to enable the Tasks App.')
@@ -412,11 +414,10 @@ describe('fullcalendar/eventClick test suite', () => {
 		expect(showInfo).toHaveBeenCalledTimes(1)
 		expect(showInfo).toHaveBeenNthCalledWith(1, 'translated hint')
 
-		expect(isPublicOrEmbeddedRoute).toHaveBeenCalledTimes(1)
-		expect(isPublicOrEmbeddedRoute).toHaveBeenNthCalledWith(1, 'EditFullView')
+		expect(getViewMode).toHaveBeenCalledTimes(1)
+		expect(getViewMode).toHaveBeenNthCalledWith(1, 'EditFullView', false)
 
-		expect(generateUrl).toHaveBeenCalledTimes(0)
-		expect(window.location).toEqual(oldLocation)
+		expect(jsEvent.preventDefault).toHaveBeenCalledTimes(1)
 	})
 
 	it('should do nothing when there is no require action on route leave', () => {
@@ -578,81 +579,5 @@ describe('fullcalendar/eventClick test suite', () => {
 		const next = vi.fn()
 		EditorMixin.requiresActionOnRouteLeave = true
 		EditorMixin.beforeRouteLeave(toRoute, fromRoute, next)
-	})
-
-	it('should properly encode calendarId containing percent-encoded spaces (shared by user with space)', () => {
-		const settingsStore = useSettingsStore()
-		settingsStore.tasksEnabled = true
-
-		const router = { push: vi.fn() }
-		const route = {
-			name: 'EditFullView',
-			params: {
-				object: 'object123',
-				otherParam: '456',
-				recurrenceId: 'recurrence456',
-			},
-		}
-		const window = {
-			innerWidth: 1920,
-			location: {
-				protocol: 'http:',
-				host: 'nextcloud.testing',
-			},
-		}
-
-		generateUrl.mockReturnValueOnce('/generated-url')
-
-		const eventClickFunction = eventClick(router, route, window)
-		eventClickFunction({ event: {
-			extendedProps: {
-				davUrl: '/remote.php/dav/calendars/admin/calendar_shared_by_User%20NAME/EAFB112A-4556-404A-B807-B1E040D0F7A0.ics',
-				object: 'object123',
-				recurrenceId: 'recurrence456',
-				objectType: 'VTODO',
-			},
-		}})
-
-		expect(generateUrl).toHaveBeenCalledTimes(1)
-		expect(generateUrl).toHaveBeenNthCalledWith(1, 'apps/tasks/calendars/calendar_shared_by_User%2520NAME/tasks/EAFB112A-4556-404A-B807-B1E040D0F7A0.ics')
-		expect(window.location.href).toEqual('/generated-url')
-	})
-
-	it('should encode special characters in calendarId and taskId', () => {
-		const settingsStore = useSettingsStore()
-		settingsStore.tasksEnabled = true
-
-		const router = { push: vi.fn() }
-		const route = {
-			name: 'EditFullView',
-			params: {
-				object: 'object123',
-				otherParam: '456',
-				recurrenceId: 'recurrence456',
-			},
-		}
-		const window = {
-			innerWidth: 1920,
-			location: {
-				protocol: 'http:',
-				host: 'nextcloud.testing',
-			},
-		}
-
-		generateUrl.mockReturnValueOnce('/generated-url')
-
-		const eventClickFunction = eventClick(router, route, window)
-		eventClickFunction({ event: {
-			extendedProps: {
-				davUrl: '/remote.php/dav/calendars/admin/calendar#special/task?file&name.ics',
-				object: 'object123',
-				recurrenceId: 'recurrence456',
-				objectType: 'VTODO',
-			},
-		}})
-
-		expect(generateUrl).toHaveBeenCalledTimes(1)
-		expect(generateUrl).toHaveBeenNthCalledWith(1, 'apps/tasks/calendars/calendar%23special/tasks/task%3Ffile%26name.ics')
-		expect(window.location.href).toEqual('/generated-url')
 	})
 })

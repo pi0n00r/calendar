@@ -11,6 +11,7 @@ namespace OCA\Calendar\Controller;
 use Exception;
 use OCA\Calendar\Service\ContactsService;
 use OCA\Calendar\Service\ServiceException;
+use OCA\Circles\Api\v1\Circles;
 use OCA\Circles\Exceptions\CircleNotFoundException;
 use OCP\App\IAppManager;
 use OCP\AppFramework\Controller;
@@ -108,7 +109,7 @@ class ContactController extends Controller {
 		$shareeEnumeration = $this->config->getAppValue('core', 'shareapi_allow_share_dialog_user_enumeration', 'yes') === 'yes';
 		$shareeEnumerationInGroupOnly = $this->config->getAppValue('core', 'shareapi_restrict_user_enumeration_to_group', 'no') === 'yes';
 		$shareeEnumerationFullMatch = $this->config->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match', 'yes') === 'yes';
-		$shareeEnumerationFullMatchUserId = $shareeEnumerationFullMatch && $this->config->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_userid', 'yes') === 'yes';
+		$shareeEnumerationFullMatchUserId = $shareeEnumerationFullMatch && $this->config->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_user_id', 'yes') === 'yes';
 		$shareeEnumerationFullMatchEmail = $shareeEnumerationFullMatch && $this->config->getAppValue('core', 'shareapi_restrict_user_enumeration_full_match_email', 'yes') === 'yes';
 		if ($shareeGroupsOnlyRestriction) {
 			$excludedGroups = json_decode(
@@ -296,7 +297,7 @@ class ContactController extends Controller {
 		}
 
 		try {
-			$circle = \OCA\Circles\Api\v1\Circles::detailsCircle($circleId, true);
+			$circle = Circles::detailsCircle($circleId, true);
 		} catch (ContainerExceptionInterface $ex) {
 			return new JSONResponse();
 		} catch (CircleNotFoundException $ex) {

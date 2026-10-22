@@ -106,6 +106,7 @@
 				:isReadOnly="isReadOnly"
 				:organizerDisplayName="organizerDisplayName"
 				:members="member.members"
+				:isViewedByOrganizer="isViewedByOrganizer"
 				@removeAttendee="removeAttendee(member)" />
 		</div>
 	</div>
@@ -123,11 +124,11 @@ import { mapState, mapStores } from 'pinia'
 import ChevronDown from 'vue-material-design-icons/ChevronDown.vue'
 import ChevronUp from 'vue-material-design-icons/ChevronUp.vue'
 import Delete from 'vue-material-design-icons/TrashCanOutline.vue'
-import AvatarParticipationStatus from '../AvatarParticipationStatus.vue'
-import AttendeeDisplay from './AttendeeDisplay.vue'
-import { getAttendeeDetails } from '../../../services/attendeeDetails.js'
-import useCalendarObjectInstanceStore from '../../../store/calendarObjectInstance.js'
-import { removeMailtoPrefix } from '../../../utils/attendee.js'
+import AvatarParticipationStatus from '@/components/Editor/AvatarParticipationStatus.vue'
+import AttendeeDisplay from '@/components/Editor/Invitees/AttendeeDisplay.vue'
+import { getAttendeeDetails } from '@/services/attendeeDetails.js'
+import useCalendarObjectInstanceStore from '@/store/calendarObjectInstance.js'
+import { removeMailtoPrefix } from '@/utils/attendee.js'
 
 export default {
 	name: 'InviteesListItem',

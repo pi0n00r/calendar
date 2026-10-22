@@ -48,14 +48,14 @@ OC.L10N.register(
     "after" : "հետո",
     "Yes" : "Այո",
     "No" : "Ոչ",
-    "Global" : "Ընդհանուր",
     "Personal" : "Անձնական",
     "Close" : "Փակել",
+    "New event" : "Նոր իրադարձություն",
     "Daily" : "Օրական",
     "Weekly" : "Շաբաթական",
     "second" : "երկրորդ",
     "Other" : "Այլ",
     "Confirmed" : "Հաստատված",
-    "Edit event" : "Խմբագրել դեպքը"
+    "Global" : "Ընդհանուր"
 },
 "nplurals=2; plural=(n != 1);");
