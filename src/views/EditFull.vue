@@ -465,12 +465,12 @@ export default {
 				readableName: t('calendar', 'Allow forwarding'),
 				icon: 'AccountPlusOutline',
 				options: [
-					{ value: 'TRUE', label: t('calendar', 'Anyone with the invitation can respond') },
-					{ value: 'FALSE', label: t('calendar', 'Only invited attendees can respond') },
+					{ value: 'TRUE', label: t('calendar', 'Anyone') },
+					{ value: 'FALSE', label: t('calendar', 'Invited people') },
 				],
 
 				multiple: false,
-				info: t('calendar', 'Choose "Only invited attendees can respond" to prevent attendees from forwarding the invitation to others.'),
+				info: t('calendar', 'Choose "Invited people" to prevent attendees from forwarding the invitation to others.'),
 				defaultValue: 'TRUE',
 			},
 		}
@@ -481,7 +481,6 @@ export default {
 		...mapState(useSettingsStore, {
 			locale: 'momentLocale',
 			hideEventExport: 'hideEventExport',
-			attachmentsFolder: 'attachmentsFolder',
 		}),
 
 		...mapState(useCalendarObjectInstanceStore, ['calendarObjectInstance']),
@@ -680,7 +679,7 @@ export default {
 
 						// add share + change attachment
 						try {
-							const data = await shareFile(`${this.attachmentsFolder}${attachment.fileName}`)
+							const data = await shareFile(attachment.fileName)
 							attachment.shareTypes = data?.share_type?.toString()
 							if (typeof attachment.attachmentProperty.getParameter('X-NC-SHARED-TYPES') === 'undefined') {
 								const xNcSharedTypes = new Parameter('X-NC-SHARED-TYPES', attachment.shareTypes)

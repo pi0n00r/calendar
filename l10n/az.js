@@ -43,6 +43,7 @@ OC.L10N.register(
     "Sunday" : "Bazar",
     "Your email address" : "Sizin email ünvanı",
     "Back" : "Geri",
+    "Close" : "Bağla",
     "Email" : "Email",
     "seconds" : "saniyələr",
     "minutes" : "dəqiqələr",
@@ -65,11 +66,12 @@ OC.L10N.register(
     "No" : "Xeyir",
     "Subscribe" : "Abunə",
     "Personal" : "Şəxsi",
-    "Close" : "Bağla",
     "Daily" : "Günlük",
     "Weekly" : "Həftəlik",
     "second" : "saniyə",
     "Other" : "Digər",
+    "Public" : "İctimai",
+    "Private" : "Gizli",
     "Categories" : "Kateqoriyalar"
 },
 "nplurals=2; plural=(n != 1);");

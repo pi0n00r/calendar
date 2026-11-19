@@ -36,7 +36,7 @@ OC.L10N.register(
     "Save" : "සුරකින්න",
     "Cancel" : "අවලංගු කරන්න",
     "Busy" : "කාර්යබහුලයි",
-    "Filename" : "ගොනු නාමය",
+    "File" : "ගොනුව",
     "Actions" : "ක්‍රියාමාර්ග",
     "General" : "සමාන්‍යය",
     "Files" : "ගොනු",
@@ -52,6 +52,7 @@ OC.L10N.register(
     "Saturday" : "සෙනසුරාදා",
     "Sunday" : "ඉරිදා",
     "Back" : "ආපසු",
+    "Close" : "වසන්න",
     "Email" : "විද්‍යුත් තැපෑල",
     "Available" : "ඇත",
     "Duration" : "කාල සීමාව",
@@ -65,12 +66,14 @@ OC.L10N.register(
     "No" : "නැහැ",
     "Create" : "සාදන්න",
     "Personal" : "පුද්ගලික",
-    "Close" : "වසන්න",
     "Selected" : "තෝරා ඇත",
     "Anniversary" : "සංවත්සරය",
     "Daily" : "දිනපතා",
     "Weekly" : "සතිපතා",
     "Other" : "වෙනත්",
-    "Phone" : "දුරකථනය"
+    "Phone" : "දුරකථනය",
+    "Public" : "පොදු",
+    "Private" : "පුද්ගලික",
+    "Filename" : "ගොනු නාමය"
 },
 "nplurals=2; plural=(n != 1);");

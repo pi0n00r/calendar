@@ -21,6 +21,7 @@ OC.L10N.register(
     "Save" : "சேமிக்க ",
     "Cancel" : "இரத்து செய்க",
     "Attendees" : "பங்கேற்பாளர்கள்",
+    "File" : "File",
     "Actions" : "செயல்கள்",
     "General" : "பொதுவான",
     "Update" : "இற்றைப்படுத்தல்",
@@ -36,6 +37,7 @@ OC.L10N.register(
     "Sunday" : "ஞாயிற்றுக்கிழமை",
     "Your email address" : "உங்களுடைய மின்னஞ்சல் முகவரி",
     "Back" : "பின்னுக்கு",
+    "Close" : "மூடுக",
     "Email" : "மின்னஞ்சல்",
     "Done" : "Done",
     "Unknown" : "தெரியாத",
@@ -45,7 +47,6 @@ OC.L10N.register(
     "Yes" : "ஆம்",
     "No" : "இல்லை",
     "Personal" : "தனிப்பட்ட",
-    "Close" : "மூடுக",
     "Selected" : "Selected",
     "Other" : "மற்றவை",
     "Phone" : "தொலைப்பேசி"

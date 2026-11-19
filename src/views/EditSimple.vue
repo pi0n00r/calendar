@@ -69,52 +69,6 @@
 								</p>
 							</template>
 						</NcPopover>
-						<Actions v-if="!isLoading && !isError && !isNew" :forceMenu="true">
-							<ActionButton v-if="eventLink" @click="copyEventLink()">
-								<template #icon>
-									<ContentCopy :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Copy link') }}
-							</ActionButton>
-							<ActionLink
-								v-if="!hideEventExport && hasDownloadURL"
-								:href="downloadURL">
-								<template #icon>
-									<Download :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Export') }}
-							</ActionLink>
-							<ActionButton v-if="canDuplicate" @click="duplicateEvent()">
-								<template #icon>
-									<ContentDuplicate :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Duplicate') }}
-							</ActionButton>
-							<ActionButton v-if="!isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
-								<template #icon>
-									<Delete :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Delete') }}
-							</ActionButton>
-							<ActionButton v-if="isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
-								<template #icon>
-									<Delete :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Delete this occurrence') }}
-							</ActionButton>
-							<ActionButton v-if="isRecurringInstance && canDelete('future')" @click="deleteAndLeave('future')">
-								<template #icon>
-									<Delete :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Delete this and future occurrences') }}
-							</ActionButton>
-							<ActionButton v-if="isRecurringInstance && canDelete('series')" @click="deleteAndLeave('series')">
-								<template #icon>
-									<Delete :size="20" decorative />
-								</template>
-								{{ $t('calendar', 'Delete entire series') }}
-							</ActionButton>
-						</Actions>
 						<Actions>
 							<ActionButton @click="cancel(false)">
 								<template #icon>
@@ -241,6 +195,52 @@
 
 					<!-- Footer -->
 					<div class="event-popover__footer">
+						<Actions v-if="!isLoading && !isError && !isNew" :forceMenu="true">
+							<ActionButton v-if="eventLink" @click="copyEventLink()">
+								<template #icon>
+									<ContentCopy :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Copy link') }}
+							</ActionButton>
+							<ActionLink
+								v-if="!hideEventExport && hasDownloadURL"
+								:href="downloadURL">
+								<template #icon>
+									<Download :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Export') }}
+							</ActionLink>
+							<ActionButton v-if="canDuplicate" @click="duplicateEvent()">
+								<template #icon>
+									<ContentDuplicate :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Duplicate') }}
+							</ActionButton>
+							<ActionButton v-if="!isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
+								<template #icon>
+									<Delete :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Delete') }}
+							</ActionButton>
+							<ActionButton v-if="isRecurringInstance && canDelete('occurrence')" @click="deleteAndLeave('occurrence')">
+								<template #icon>
+									<Delete :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Delete this occurrence') }}
+							</ActionButton>
+							<ActionButton v-if="isRecurringInstance && canDelete('future')" @click="deleteAndLeave('future')">
+								<template #icon>
+									<Delete :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Delete this and future occurrences') }}
+							</ActionButton>
+							<ActionButton v-if="isRecurringInstance && canDelete('series')" @click="deleteAndLeave('series')">
+								<template #icon>
+									<Delete :size="20" decorative />
+								</template>
+								{{ $t('calendar', 'Delete entire series') }}
+							</ActionButton>
+						</Actions>
 						<SaveButtons
 							v-if="!isWidget"
 							class="event-popover__buttons"
@@ -924,7 +924,7 @@ export default {
 	max-height: 90vh;
 	overflow: hidden;
 	background: var(--color-main-background);
-	box-shadow: 0 4px 20px rgba(0, 0, 0, .8);
+	box-shadow: 0 var(--default-grid-baseline) calc(var(--default-grid-baseline) * 5) var(--color-box-shadow);
 	border: 1px solid var(--color-border);
 	border-radius: var(--border-radius-large);
 
@@ -993,6 +993,10 @@ export default {
 	}
 
 	.event-popover__footer {
+		display: flex;
+		justify-content: end;
+		align-items: center;
+		gap: var(--default-grid-baseline);
 		flex-shrink: 0;
 		padding-top: calc(var(--default-grid-baseline) * 2);
 		background: var(--color-main-background);
@@ -1014,12 +1018,15 @@ export default {
 		position: absolute !important;
 		top: var(--default-grid-baseline) !important;
 		z-index: 100 !important;
-		opacity: .7 !important;
 		align-items: center;
 		inset-inline-end : var(--default-grid-baseline) !important;
 		.action-item.action-item--single {
 			width: 44px !important;
 			height: 44px !important;
+		}
+
+		:deep(.button-vue--tertiary) {
+			color: var(--color-text-maxcontrast);
 		}
 	}
 }
