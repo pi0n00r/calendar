@@ -18,6 +18,7 @@ use OCP\Calendar\IManager;
 use OCP\Dashboard\IButtonWidget;
 use OCP\Dashboard\Model\WidgetItem;
 use OCP\IDateTimeFormatter;
+use OCP\IDateTimeZone;
 use OCP\IL10N;
 use OCP\IURLGenerator;
 use PHPUnit\Framework\MockObject\MockObject;
@@ -52,6 +53,11 @@ class CalendarWidgetTest extends TestCase {
 	/** @var ITimeFactory|MockObject */
 	private $timeFactory;
 
+	/** @var IDateTimeZone|MockObject */
+	private $dateTimeZone;
+
+	private DateTimeZone $dashboardTimeZone;
+
 	protected function setUp(): void {
 		parent::setUp();
 
@@ -66,6 +72,10 @@ class CalendarWidgetTest extends TestCase {
 		$this->urlGenerator = $this->createMock(IURLGenerator::class);
 		$this->calendarManager = $this->createMock(IManager::class);
 		$this->timeFactory = $this->createMock(ITimeFactory::class);
+		$this->dateTimeZone = $this->createMock(IDateTimeZone::class);
+		$this->dashboardTimeZone = new DateTimeZone('UTC');
+		$this->dateTimeZone->method('getTimeZone')
+			->willReturnCallback(fn (int|false $_timestamp, ?string $_userId): DateTimeZone => $this->dashboardTimeZone);
 
 		$this->widget = new CalendarWidget(
 			$this->l10n,
@@ -75,6 +85,7 @@ class CalendarWidgetTest extends TestCase {
 			$this->urlGenerator,
 			$this->calendarManager,
 			$this->timeFactory,
+			$this->dateTimeZone,
 		);
 	}
 
@@ -172,6 +183,155 @@ class CalendarWidgetTest extends TestCase {
 		$widgets = $this->widget->getItems($userId);
 		$this->assertCount(1, $widgets);
 		$this->assertEquals($widgets[0], $widget);
+	}
+
+	public function testGetItemsPreservesParsedFixedOffsetTimeZone(): void {
+		$userId = 'admin';
+		$calendar = $this->createMock(ITestCalendar::class);
+		$time = (new DateTimeImmutable('2026-07-28 04:30:00 UTC'))->getTimestamp();
+		$rangeStart = (new DateTimeImmutable())->setTimestamp($time);
+		$expectedStart = new DateTimeImmutable('2026-07-28 11:15:00 -04:00');
+		$options = [
+			'timerange' => [
+				'start' => $rangeStart,
+				'end' => $rangeStart->add(new \DateInterval('P14D')),
+			],
+		];
+		$result = [
+			'id' => '3601',
+			'uid' => 'fixed-offset-event',
+			'uri' => 'fixed-offset-event.ics',
+			'objects' => [[
+				'DTSTART' => [
+					$expectedStart,
+					['TZID' => 'UTC-04:00'],
+				],
+				'SUMMARY' => ['Fixed offset event'],
+			]],
+		];
+
+		$this->calendarManager->expects(self::once())
+			->method('getCalendarsForPrincipal')
+			->with('principals/users/' . $userId)
+			->willReturn([$calendar]);
+		$this->timeFactory->expects(self::once())
+			->method('getTime')
+			->willReturn($time);
+		$calendar->expects(self::once())
+			->method('isEnabled')
+			->willReturn(true);
+		$calendar->expects(self::once())
+			->method('isDeleted')
+			->willReturn(false);
+		$calendar->expects(self::once())
+			->method('search')
+			->with('', [], $options, null)
+			->willReturn([$result]);
+		$calendar->expects(self::once())
+			->method('getDisplayColor')
+			->willReturn('#ffffff');
+		$this->dateTimeFormatter->expects(self::once())
+			->method('formatTimeSpan')
+			->with(
+				self::callback(static fn (\DateTime $dateTime): bool => $dateTime->getTimestamp() === $expectedStart->getTimestamp()),
+				self::callback(static fn (\DateTime $dateTime): bool => $dateTime->getTimestamp() === $time),
+			)
+			->willReturn('in 10 hours');
+		$this->urlGenerator->expects(self::once())
+			->method('getAbsoluteURL')
+			->willReturn('fixed-offset-event');
+
+		$widgets = $this->widget->getItems($userId);
+
+		$this->assertCount(1, $widgets);
+		$this->assertSame((string)$expectedStart->getTimestamp(), $widgets[0]->getSinceId());
+		$this->assertSame('in 10 hours', $widgets[0]->getSubtitle());
+		$this->assertSame($expectedStart, $result['objects'][0]['DTSTART'][0]);
+		$this->assertSame('UTC-04:00', $result['objects'][0]['DTSTART'][1]['TZID']);
+	}
+
+	public function testGetItemsFormatsRelativeDayInDashboardTimeZone(): void {
+		$previousTimeZone = date_default_timezone_get();
+		date_default_timezone_set('UTC');
+		$this->dashboardTimeZone = new DateTimeZone('America/Toronto');
+
+		try {
+			$userId = 'admin';
+			$calendar = $this->createMock(ITestCalendar::class);
+			$now = new DateTimeImmutable('2026-09-08 23:30:00', new DateTimeZone('America/Toronto'));
+			$start = new DateTimeImmutable('2026-09-10 13:00:00 UTC');
+			$rangeStart = (new DateTimeImmutable('@' . $now->getTimestamp()))->setTimezone($this->dashboardTimeZone);
+			$options = [
+				'timerange' => [
+					'start' => $rangeStart,
+					'end' => $rangeStart->add(new \DateInterval('P14D')),
+				],
+			];
+			$result = [
+				'id' => '3602',
+				'uid' => 'late-evening-relative-day',
+				'uri' => 'late-evening-relative-day.ics',
+				'objects' => [[
+					'DTSTART' => [$start],
+					'SUMMARY' => ['Physio'],
+				]],
+			];
+
+			$this->calendarManager->expects(self::once())
+				->method('getCalendarsForPrincipal')
+				->with('principals/users/' . $userId)
+				->willReturn([$calendar]);
+			$this->timeFactory->expects(self::once())
+				->method('getTime')
+				->willReturn($now->getTimestamp());
+			$calendar->expects(self::once())
+				->method('isEnabled')
+				->willReturn(true);
+			$calendar->expects(self::once())
+				->method('isDeleted')
+				->willReturn(false);
+			$calendar->expects(self::once())
+				->method('search')
+				->with('', [], $options, null)
+				->willReturn([$result]);
+			$calendar->expects(self::once())
+				->method('getDisplayColor')
+				->willReturn('#ffffff');
+			$this->dateTimeFormatter->expects(self::once())
+				->method('formatTimeSpan')
+				->with(
+					self::callback(static fn (\DateTime $dateTime): bool => $dateTime->format('Y-m-d H:i:s e') === '2026-09-10 09:00:00 America/Toronto'),
+					self::callback(static fn (\DateTime $dateTime): bool => $dateTime->format('Y-m-d H:i:s e') === '2026-09-08 23:30:00 America/Toronto'),
+				)
+				->willReturn('in 2 days');
+			$this->urlGenerator->expects(self::once())
+				->method('getAbsoluteURL')
+				->willReturn('late-evening-relative-day');
+
+			$widgets = $this->widget->getItems($userId);
+
+			$this->assertCount(1, $widgets);
+			$this->assertSame('in 2 days', $widgets[0]->getSubtitle());
+			$this->assertSame((string)$start->getTimestamp(), $widgets[0]->getSinceId());
+		} finally {
+			date_default_timezone_set($previousTimeZone);
+		}
+	}
+
+	public function testDisplayNormalizationKeepsAllDayCalendarDate(): void {
+		$start = new DateTimeImmutable('2026-09-10 00:00:00 UTC');
+		$displayTimeZone = new DateTimeZone('America/Toronto');
+		$normalized = self::invokePrivate($this->widget, 'normalizeDisplayDateTime', [
+			$start,
+			$displayTimeZone,
+			[
+				$start,
+				['VALUE' => 'DATE'],
+			],
+		]);
+
+		$this->assertSame('2026-09-10 00:00:00 America/Toronto', $normalized->format('Y-m-d H:i:s e'));
+		$this->assertSame('2026-09-10', $start->format('Y-m-d'));
 	}
 
 	public function testGetItemsCachesCalendarDotPerRequest(): void {
